@@ -40,6 +40,8 @@ class GestureStateMachine:
         # Hold state tracking
         self.fist_short_emitted: bool = False
         self.long_hold_emitted: bool = False
+        # Multi-frame gesture confirmation (hold duration tracking)
+        self.consecutive_frames: int = 0
 
     def process(self, classification: Optional[tuple[GestureType, float]], hand: str) -> None:
         """
@@ -59,6 +61,7 @@ class GestureStateMachine:
 
         # 2. No gesture detected this frame (hand released / missing)
         if classification is None:
+            self.consecutive_frames = 0
             if self.phase == StateMachinePhase.DETECTING:
                 if self.fist_short_emitted:
                     # Released after short fist confirmation -> enter standard cooldown
@@ -79,6 +82,7 @@ class GestureStateMachine:
             self.phase = StateMachinePhase.DETECTING
             self.current_candidate = gesture_type
             self.candidate_start_time = now
+            self.consecutive_frames = 1
             self.fist_short_emitted = False
             self.long_hold_emitted = False
 
@@ -92,20 +96,29 @@ class GestureStateMachine:
                 else:
                     self.current_candidate = gesture_type
                     self.candidate_start_time = now
+                self.consecutive_frames = 1
                 self.fist_short_emitted = False
                 self.long_hold_emitted = False
                 return
 
-            # Check confirmation requirements based on gesture type
-            if gesture_type == GestureType.THROW or gesture_type == GestureType.CANCEL:
-                # Instant confirmation for dynamic gestures
-                self._emit_and_cooldown(gesture_type, confidence, hand, now)
+            self.consecutive_frames += 1
+
+            # Check confirmation requirements based on gesture type (multi-frame hold duration)
+            if gesture_type in (GestureType.THROW, GestureType.CANCEL):
+                # Multi-frame confirmation for dynamic gestures (min 2 consecutive frames to prevent single-spike twitch fires)
+                hold_time_ms = (now - self.candidate_start_time) * 1000
+                if self.consecutive_frames >= 2 or hold_time_ms >= 60.0:
+                    self._emit_and_cooldown(gesture_type, confidence, hand, now)
 
             elif gesture_type == GestureType.FIST:
                 hold_time_ms = (now - self.candidate_start_time) * 1000
 
-                # Check short fist threshold (>= 600ms)
-                if hold_time_ms >= GESTURE_FIST_HOLD_MS and confidence >= GESTURE_FIST_CONFIDENCE_THRESHOLD:
+                # Multi-frame short fist threshold: >= 600ms hold, >= 0.88 confidence, >= 2 frames
+                if (
+                    hold_time_ms >= GESTURE_FIST_HOLD_MS
+                    and confidence >= GESTURE_FIST_CONFIDENCE_THRESHOLD
+                    and self.consecutive_frames >= 2
+                ):
                     if not self.fist_short_emitted:
                         self.fist_short_emitted = True
                         event = GestureEvent(
@@ -118,8 +131,8 @@ class GestureStateMachine:
                         )
                         self.on_event_callback(event)
 
-                    # Check long fist threshold (>= 2000ms / 2.0s) -> Opens Checklist Popup
-                    if hold_time_ms >= 2000.0 and not self.long_hold_emitted:
+                    # Multi-frame long fist threshold (>= 2000ms / 2.0s hold, >= 3 frames) -> Opens Checklist Popup
+                    if hold_time_ms >= 2000.0 and self.consecutive_frames >= 3 and not self.long_hold_emitted:
                         self.long_hold_emitted = True
                         event = GestureEvent(
                             gesture_type=GestureType.FIST_LONG,
@@ -136,6 +149,7 @@ class GestureStateMachine:
                         self.current_candidate = None
                         self.fist_short_emitted = False
                         self.long_hold_emitted = False
+                        self.consecutive_frames = 0
 
             elif gesture_type == GestureType.RECEIVE:
                 hold_time_ms = (now - self.candidate_start_time) * 1000
