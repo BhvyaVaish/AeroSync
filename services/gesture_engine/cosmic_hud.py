@@ -58,18 +58,22 @@ def draw_cosmic_hud(
     gesture_name: Optional[str] = None,
     role_state: Optional[str] = None,
     calibration_text: Optional[str] = None,
+    sensor_alert: Optional[str] = None,
+    two_hand_suppressed: bool = False,
 ) -> np.ndarray:
     """
     Apply the celestial constellation HUD to the camera frame.
     Alpha-blends transparent glow layers for a polished sci-fi look.
 
     Args:
-        frame:            Raw BGR camera frame.
-        hands:            Detected hand landmark objects.
-        nodes_map:        Dict of handedness → KinematicHandNodes (from classifier).
-        gesture_name:     Name of the last confirmed gesture for badge display.
-        role_state:       Current RoleState value for the role indicator pill.
-        calibration_text: Active 10-second calibration prompt/countdown text.
+        frame:               Raw BGR camera frame.
+        hands:               Detected hand landmark objects.
+        nodes_map:           Dict of handedness → KinematicHandNodes (from classifier).
+        gesture_name:        Name of the last confirmed gesture for badge display.
+        role_state:          Current RoleState value for the role indicator pill.
+        calibration_text:    Active 10-second calibration prompt/countdown text.
+        sensor_alert:        Low lighting or hardware degradation fallback notification.
+        two_hand_suppressed: True if bimanual anti-trigger is suppressing gesture execution.
     """
     h, w, _ = frame.shape
     overlay = frame.copy()
@@ -214,6 +218,36 @@ def draw_cosmic_hud(
                 2,
                 cv2.LINE_AA,
             )
+
+    # Two-Hand Anti-Trigger Banner (typing / bimanual gesture suppression)
+    if two_hand_suppressed:
+        cv2.rectangle(overlay, (15, h - 38), (w - 15, h - 10), (10, 15, 30), -1)
+        cv2.rectangle(overlay, (15, h - 38), (w - 15, h - 10), (250, 120, 160), 1)
+        cv2.putText(
+            overlay,
+            "✦ 2 HANDS DETECTED: Anti-trigger active (typing/gesturing) — Triggers paused",
+            (25, h - 22),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.36,
+            (250, 120, 160),
+            1,
+            cv2.LINE_AA,
+        )
+
+    # Sensor / Low-Light Fallback Alert Banner
+    if sensor_alert:
+        cv2.rectangle(overlay, (15, h - 68 if two_hand_suppressed else h - 38), (w - 15, h - 42 if two_hand_suppressed else h - 10), (10, 20, 40), -1)
+        cv2.rectangle(overlay, (15, h - 68 if two_hand_suppressed else h - 38), (w - 15, h - 42 if two_hand_suppressed else h - 10), COLOR_AMBER_WARN, 1)
+        cv2.putText(
+            overlay,
+            f"✦ {sensor_alert}",
+            (25, h - 52 if two_hand_suppressed else h - 22),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.36,
+            COLOR_AMBER_WARN,
+            1,
+            cv2.LINE_AA,
+        )
 
     # Alpha-blend overlay for soft cosmic transparency (65% overlay + 35% original frame)
     blended = cv2.addWeighted(overlay, 0.70, frame, 0.30, 0)

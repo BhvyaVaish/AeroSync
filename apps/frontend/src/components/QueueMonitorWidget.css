@@ -1,0 +1,185 @@
+.queue-monitor-card {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 80% 20%, rgba(0, 245, 212, 0.08), rgba(10, 14, 26, 0.95) 75%);
+  border: 1px solid rgba(0, 245, 212, 0.25);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(0, 245, 212, 0.05);
+  transition: all 0.3s ease;
+}
+
+.queue-monitor-card:hover {
+  border-color: rgba(0, 245, 212, 0.45);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 245, 212, 0.15);
+}
+
+.queue-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.queue-telemetry-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.queue-telemetry-title h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #f1f5f9;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.queue-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00f5d4;
+  box-shadow: 0 0 10px #00f5d4;
+  animation: cosmicPulse 2s infinite ease-in-out;
+}
+
+@keyframes cosmicPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 8px #00f5d4; }
+  50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 16px #00f5d4, 0 0 24px rgba(0, 245, 212, 0.4); }
+}
+
+.queue-orbital-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.orbital-ring-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orbital-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(0, 245, 212, 0.4);
+  border-radius: 50%;
+  animation: orbitRotate 20s linear infinite;
+}
+
+@keyframes orbitRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.orbital-ring-inner {
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 50%;
+  animation: orbitRotateReverse 15s linear infinite;
+}
+
+@keyframes orbitRotateReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+.orbital-count-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.orbital-count-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #00f5d4;
+  line-height: 1;
+  text-shadow: 0 0 12px rgba(0, 245, 212, 0.5);
+}
+
+.orbital-count-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+  margin-top: 0.25rem;
+}
+
+.queue-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  flex: 1;
+  margin-left: 1.5rem;
+}
+
+.breakdown-badge {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+
+.breakdown-badge:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(0, 245, 212, 0.2);
+}
+
+.breakdown-info {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.breakdown-val {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.queue-capacity-bar {
+  margin-top: 0.75rem;
+}
+
+.capacity-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+
+.capacity-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.capacity-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f5d4, #38bdf8, #a855f7);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px rgba(0, 245, 212, 0.6);
+}

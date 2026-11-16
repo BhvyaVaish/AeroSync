@@ -1,0 +1,89 @@
+.sessions-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sessions-card {
+  padding: 1.5rem;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.sessions-table th,
+.sessions-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.sessions-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.sessions-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.completed {
+  background: rgba(46, 213, 115, 0.1);
+  color: #2ed573;
+  border: 1px solid rgba(46, 213, 115, 0.2);
+}
+
+.status-badge.failed {
+  background: rgba(255, 71, 87, 0.1);
+  color: #ff4757;
+  border: 1px solid rgba(255, 71, 87, 0.2);
+}
+
+.status-badge.pending {
+  background: rgba(255, 165, 2, 0.1);
+  color: #ffa502;
+  border: 1px solid rgba(255, 165, 2, 0.2);
+}
+
+.font-mono {
+  font-family: monospace;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-red {
+  color: #ff4757;
+}
+
+.text-red:hover {
+  color: #ff4757;
+  background: rgba(255, 71, 87, 0.1);
+}
+
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 4rem;
+  color: var(--text-muted);
+}
