@@ -48,6 +48,11 @@ class GestureDetector:
         # 10-Second Per-User Calibration
         self.calibrator = TenSecondCalibrator()
         self._calibration_instruction: str = ""
+
+        # Two-hand anti-trigger & sensor health
+        self._two_hand_suppressed: bool = False
+        self._last_degraded_toast: float = 0.0
+        self._current_sensor_alert: Optional[str] = None
         
         # State machine and callbacks
         self.event_callbacks: List[Callable[[GestureEvent], None]] = []
