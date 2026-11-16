@@ -216,14 +216,36 @@ class GestureDetector:
                 h, w, _ = frame.shape
                 hands = self.tracker.process_frame(frame)
                 self._hands_detected = len(hands)
-                
-                # Classify hands using kinematic nodes
-                for hand in hands:
-                    classification = self.classifier.process_hand(hand, w, h)
-                    self.state_machine.process(classification, hand.handedness)
-                    
-                # If no hands, still tick the state machine to handle resets/cooldowns
-                if not hands:
+
+                # Ambient Lighting & Sensor Health Check
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                mean_brightness = float(np.mean(gray))
+                if mean_brightness < 35.0:
+                    self._current_sensor_alert = f"Low Light ({int(mean_brightness)} lux): Use [Ctrl+Alt+C] or [Ctrl+Alt+L]"
+                    if now - self._last_degraded_toast >= 45.0:
+                        self._last_degraded_toast = now
+                        try:
+                            from apps.client.notification import show_toast
+                            show_toast(
+                                "AeroSync Sensor Alert ⚠️",
+                                "Insufficient light detected!\n👉 Use shortcuts: [Ctrl+Alt+C] to Capture (Host A) • [Ctrl+Alt+L] to Launch (Target B)"
+                            )
+                        except Exception:
+                            pass
+                else:
+                    self._current_sensor_alert = None
+
+                # Two-Hand Anti-Trigger Filter (Prevents false triggers from typing / resting / conversation)
+                if len(hands) >= 2:
+                    self._two_hand_suppressed = True
+                    self.state_machine.process(None, "bimanual_suppression")
+                elif len(hands) == 1:
+                    self._two_hand_suppressed = False
+                    h0 = hands[0]
+                    classification = self.classifier.process_hand(h0, w, h)
+                    self.state_machine.process(classification, h0.handedness)
+                else:
+                    self._two_hand_suppressed = False
                     self.state_machine.process(None, "unknown")
                     
                 # 10-Second Per-User Calibration processing
@@ -252,7 +274,14 @@ class GestureDetector:
                     else None
                 )
                 cal_text = self._calibration_instruction if self.calibrator.is_active else None
-                hud_frame = draw_cosmic_hud(frame, hands, gesture_name=active_gesture, calibration_text=cal_text)
+                hud_frame = draw_cosmic_hud(
+                    frame,
+                    hands,
+                    gesture_name=active_gesture,
+                    calibration_text=cal_text,
+                    sensor_alert=self._current_sensor_alert,
+                    two_hand_suppressed=self._two_hand_suppressed,
+                )
 
                 # Store latest frame safely for the corner camera widget
                 with self.frame_lock:
