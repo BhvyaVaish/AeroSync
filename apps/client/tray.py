@@ -142,6 +142,12 @@ class AeroSyncTray:
             if self.orchestrator._role_machine:
                 self.orchestrator._role_machine.notify_transfer_complete()
 
+        def on_reconnect(icon, item):
+            logger.info("[Tray] Manual trigger: Reconnect Relay")
+            if hasattr(self.orchestrator, "relay") and hasattr(self.orchestrator.relay, "reset_and_reconnect"):
+                self.orchestrator.relay.reset_and_reconnect()
+                show_toast("AeroSync", "Reconnecting to Relay Server...")
+
         def on_exit(icon, item):
             logger.info("[Tray] User selected Exit from system tray")
             icon.stop()
@@ -166,8 +172,9 @@ class AeroSyncTray:
                 checked=lambda item: is_autostart_enabled(),
             ),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Arm Host Mode (Fist ✊)", on_arm_host),
-            pystray.MenuItem("Claim Target Mode (Throw 🚀)", on_claim_target),
+            pystray.MenuItem("Capture Workspace (Ctrl+Alt+C / Fist ✊)", on_arm_host),
+            pystray.MenuItem("Claim Target (Ctrl+Alt+L / Throw 🚀)", on_claim_target),
+            pystray.MenuItem("Reconnect Relay ⚡", on_reconnect),
             pystray.MenuItem("Reset to Neutral 🔄", on_reset),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Exit AeroSync", on_exit),
