@@ -109,3 +109,19 @@ def play_calibration_step_sound(step: int = 1) -> None:
         # Step 1
         notes = [(523, 50), (659, 60)]
     _async_play(notes, pause_s=0.015)
+
+
+def play_undo_sound() -> None:
+    """
+    Workspace Undo / Rollback Sound:
+    Descending celestial rewind harmonic (C6 -> G5 -> E5 -> C5).
+    Plays when workspace rollback is triggered via Undo gesture or shortcut.
+    """
+    logger.info("[CosmicAudio] Playing Workspace Undo / Rollback chime")
+    notes = [
+        (1046, 70),  # C6
+        (784, 70),   # G5
+        (659, 80),   # E5
+        (523, 160),  # C5 (deep settling tone)
+    ]
+    _async_play(notes, pause_s=0.015)

@@ -94,6 +94,10 @@ class RoleStateMachine:
         self._last_throw_time: float = 0.0
         self._gesture_cooldown_s: float = 2.5
 
+        # Direct LAN P2P endpoints
+        self.lan_endpoint: Optional[Dict[str, Any]] = None
+        self.target_lan_endpoint: Optional[Dict[str, Any]] = None
+
     # ──────────────────────────────────────────────────────────────
     # Public API
     # ──────────────────────────────────────────────────────────────
@@ -230,12 +234,15 @@ class RoleStateMachine:
         )
 
         # Notify relay/host that we're claiming Target B
-        self._emit({
+        msg = {
             "type": WsMessageType.TARGET_CLAIMING,
             "device_id": self.device_id,
             "host_device_id": self._host_device_id,
             "constellation_id": self.constellation_id,
-        })
+        }
+        if self.lan_endpoint:
+            msg["lan_endpoint"] = self.lan_endpoint
+        self._emit(msg)
 
         # Fire on_become_target callback
         if self.on_become_target:
@@ -277,7 +284,8 @@ class RoleStateMachine:
 
         target_id = message.get("device_id")
         self._target_device_id = target_id
-        logger.info("[RoleSM] 🎯 Peer %s claimed Target B — sending workspace", target_id)
+        self.target_lan_endpoint = message.get("lan_endpoint")
+        logger.info("[RoleSM] 🎯 Peer %s claimed Target B (LAN endpoint: %s) — sending workspace", target_id, self.target_lan_endpoint)
         self._transition(RoleState.TRANSFERRING)
 
         # Signal workspace_ready back to the target
@@ -312,6 +320,7 @@ class RoleStateMachine:
         self._state = RoleState.NEUTRAL
         self._host_device_id = None
         self._target_device_id = None
+        self.target_lan_endpoint = None
         if self.on_reset:
             try:
                 self.on_reset()

@@ -51,6 +51,102 @@ _ROLE_LABELS = {
 }
 
 
+def _draw_comet_tail_and_prediction(
+    overlay: np.ndarray,
+    w: int,
+    h: int,
+    palm_px: Tuple[int, int],
+    past_pts: List[Any],
+    pred_pts: List[Any],
+    velocity: Optional[Any] = None,
+    is_throw: bool = False,
+) -> None:
+    """
+    Renders celestial comet tail with animated particles following the hand's
+    velocity vector and predicts the beam trajectory towards the target device.
+    """
+    # 1. Draw Past Comet Tail (Starlight Ribbon & Particle Dust)
+    if past_pts and len(past_pts) >= 2:
+        valid_px: List[Tuple[int, int]] = []
+        for p in past_pts:
+            px = int(p.x * w)
+            py = int(p.y * h)
+            valid_px.append((px, py))
+
+        # Connect with tapering celestial lines
+        n = len(valid_px)
+        for i in range(n - 1):
+            ratio = (i + 1) / float(n)  # 0.0 near tail start, 1.0 near palm
+            b = int(250 * ratio + 180 * (1.0 - ratio))
+            g = int(230 * ratio + 80 * (1.0 - ratio))
+            r = int(60 * ratio + 180 * (1.0 - ratio))
+            color = (b, g, r)
+            thickness = max(1, int(3 * ratio))
+            cv2.line(overlay, valid_px[i], valid_px[i + 1], color, thickness, cv2.LINE_AA)
+            particle_r = max(1, int(3 * ratio))
+            cv2.circle(overlay, valid_px[i], particle_r, color, -1, cv2.LINE_AA)
+
+        # Connect last past point to current palm center
+        cv2.line(overlay, valid_px[-1], palm_px, COLOR_CYAN_GLOW, 2, cv2.LINE_AA)
+
+    # 2. Draw Forward Predictive Trajectory Vector
+    if pred_pts:
+        pred_px: List[Tuple[int, int]] = []
+        for p in pred_pts:
+            px = max(5, min(w - 5, int(p.x * w)))
+            py = max(5, min(h - 5, int(p.y * h)))
+            pred_px.append((px, py))
+
+        # Draw trajectory prediction arc
+        last_pt = palm_px
+        for i, pt in enumerate(pred_px):
+            if i % 2 == 0:
+                cv2.line(overlay, last_pt, pt, (0, 245, 212), 2, cv2.LINE_AA)
+            else:
+                cv2.line(overlay, last_pt, pt, (255, 200, 50), 1, cv2.LINE_AA)
+            cv2.circle(overlay, pt, 2, COLOR_WHITE_STAR, -1, cv2.LINE_AA)
+            last_pt = pt
+
+        # Target Aim Reticle at the trajectory head
+        lead_pt = pred_px[-1]
+        reticle_r = 12 if is_throw else 8
+        reticle_color = (0, 255, 255) if is_throw else (0, 245, 212)
+        cv2.circle(overlay, lead_pt, reticle_r, reticle_color, 1, cv2.LINE_AA)
+        cv2.circle(overlay, lead_pt, 3, COLOR_WHITE_STAR, -1, cv2.LINE_AA)
+
+        # Crosshairs on lead reticle
+        ch_len = 5
+        cv2.line(overlay, (lead_pt[0] - ch_len, lead_pt[1]), (lead_pt[0] + ch_len, lead_pt[1]), reticle_color, 1, cv2.LINE_AA)
+        cv2.line(overlay, (lead_pt[0], lead_pt[1] - ch_len), (lead_pt[0], lead_pt[1] + ch_len), reticle_color, 1, cv2.LINE_AA)
+
+        # Trajectory beam tag
+        if is_throw:
+            tag = "✦ BEAM AIM: TARGET PC 🚀"
+            cv2.putText(
+                overlay,
+                tag,
+                (max(10, min(w - 200, lead_pt[0] - 50)), max(20, lead_pt[1] - 12)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.38,
+                (0, 255, 255),
+                1,
+                cv2.LINE_AA,
+            )
+        elif velocity and getattr(velocity, "magnitude", 0) > 0.2:
+            speed_val = round(velocity.magnitude, 1)
+            tag = f"✦ VECTOR ({speed_val}m/s)"
+            cv2.putText(
+                overlay,
+                tag,
+                (max(10, min(w - 140, lead_pt[0] - 30)), max(20, lead_pt[1] - 10)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.32,
+                (0, 245, 212),
+                1,
+                cv2.LINE_AA,
+            )
+
+
 def draw_cosmic_hud(
     frame: np.ndarray,
     hands: List[HandLandmarks],
@@ -60,6 +156,8 @@ def draw_cosmic_hud(
     calibration_text: Optional[str] = None,
     sensor_alert: Optional[str] = None,
     two_hand_suppressed: bool = False,
+    eco_mode: bool = False,
+    trajectory_data: Optional[dict] = None,
 ) -> np.ndarray:
     """
     Apply the celestial constellation HUD to the camera frame.
@@ -74,6 +172,7 @@ def draw_cosmic_hud(
         calibration_text:    Active 10-second calibration prompt/countdown text.
         sensor_alert:        Low lighting or hardware degradation fallback notification.
         two_hand_suppressed: True if bimanual anti-trigger is suppressing gesture execution.
+        eco_mode:            True if running on battery and background operations are throttled.
     """
     h, w, _ = frame.shape
     overlay = frame.copy()
@@ -180,6 +279,21 @@ def draw_cosmic_hud(
             p2 = (int(palm_px[0] + (core_radius + 4) * math.cos(rad)), int(palm_px[1] + (core_radius + 4) * math.sin(rad)))
             cv2.line(overlay, p1, p2, theme_color, 1, cv2.LINE_AA)
 
+        # 2b. Predictive Trajectory Comet Tail & Beam Aim Reticle
+        handedness = getattr(hand, "handedness", "Right")
+        if trajectory_data and handedness in trajectory_data:
+            t_data = trajectory_data[handedness]
+            _draw_comet_tail_and_prediction(
+                overlay=overlay,
+                w=w,
+                h=h,
+                palm_px=palm_px,
+                past_pts=t_data.get("past", []),
+                pred_pts=t_data.get("predicted", []),
+                velocity=t_data.get("velocity"),
+                is_throw=(gesture_name == "throw"),
+            )
+
         # Assistive Status Tag below the hand
         tag_text = "Constellation Locked" if in_zone else "Move Hand To Center"
         tag_y = min(h - 10, palm_px[1] + core_radius + 18)
@@ -245,6 +359,22 @@ def draw_cosmic_hud(
             cv2.FONT_HERSHEY_SIMPLEX,
             0.36,
             COLOR_AMBER_WARN,
+            1,
+            cv2.LINE_AA,
+        )
+
+    # Eco-Mode Battery Throttling Badge (amber)
+    if eco_mode:
+        eco_y = 48 if calibration_text else 14
+        cv2.rectangle(overlay, (w - 230, eco_y), (w - 15, eco_y + 24), (10, 20, 35), -1)
+        cv2.rectangle(overlay, (w - 230, eco_y), (w - 15, eco_y + 24), (0, 165, 255), 1)  # Amber
+        cv2.putText(
+            overlay,
+            "⚡ ECO MODE (Battery Throttled)",
+            (w - 222, eco_y + 16),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.36,
+            (0, 165, 255),
             1,
             cv2.LINE_AA,
         )

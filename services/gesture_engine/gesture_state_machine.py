@@ -104,7 +104,7 @@ class GestureStateMachine:
             self.consecutive_frames += 1
 
             # Check confirmation requirements based on gesture type (multi-frame hold duration)
-            if gesture_type in (GestureType.THROW, GestureType.CANCEL):
+            if gesture_type in (GestureType.THROW, GestureType.CANCEL, GestureType.UNDO):
                 # Multi-frame confirmation for dynamic gestures (min 2 consecutive frames to prevent single-spike twitch fires)
                 hold_time_ms = (now - self.candidate_start_time) * 1000
                 if self.consecutive_frames >= 2 or hold_time_ms >= 60.0:
@@ -181,7 +181,7 @@ class GestureStateMachine:
         cooldown_ms = 1000  # Default 1s
         if gesture_type == GestureType.THROW:
             cooldown_ms = GESTURE_THROW_COOLDOWN_MS
-        elif gesture_type in (GestureType.FIST, GestureType.FIST_LONG):
+        elif gesture_type in (GestureType.FIST, GestureType.FIST_LONG, GestureType.UNDO):
             cooldown_ms = 1500
 
         self.cooldown_end_time = now + (cooldown_ms / 1000.0)

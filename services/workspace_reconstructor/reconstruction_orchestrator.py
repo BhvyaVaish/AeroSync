@@ -160,12 +160,74 @@ async def reconstruct_workspace(snapshot: WorkspaceSnapshot, transfer_id: str) -
     report = ReconstructionReport(transfer_id=transfer_id)
 
     # ── Step 0: Snapshot Target B current state ───────────────────────────────
+    from services.workspace_reconstructor.rollback_manager import get_rollback_manager
+    rollback_mgr = get_rollback_manager()
+    rollback_mgr.capture_pre_reconstruction_state(transfer_id=transfer_id)
+
     b_running_procs, b_open_windows = _snapshot_b_state()
     already_opened_urls: Set[str] = set()
     logger.info(
         "[B-State] %d running procs, %d open windows",
         len(b_running_procs), len(b_open_windows),
     )
+
+    # ── Fast Delta Sync Differential Path ─────────────────────────────────────
+    if snapshot.is_delta:
+        logger.info(
+            "[DeltaSync] Fast differential reconstruction: base=%s, summary=%s",
+            snapshot.base_snapshot_id, snapshot.delta_summary,
+        )
+        from services.delta_sync.delta_engine import get_delta_engine
+        delta_eng = get_delta_engine()
+        base = delta_eng.get_inbound_base(snapshot.source_device_id)
+        if base:
+            delta_eng.apply_delta_to_base(base, snapshot)
+
+        # 1. Delta Browsers / Tabs
+        if snapshot.browsers:
+            res, err = await _safe_execute(
+                restore_browsers(snapshot.browsers, already_opened_urls=already_opened_urls),
+                "delta_browser",
+                RECONSTRUCTION_STEP_TIMEOUT_SECONDS,
+            )
+            if not err and res:
+                successful, failed_tabs, reused = res
+                report.restored_tabs.extend(successful)
+                report.reused_items.extend([f"Tab (reused): {u}" for u in reused])
+
+        # 2. Delta Windows (Reposition & Launch)
+        if snapshot.windows:
+            win_res, win_err = await _safe_execute(
+                restore_windows(snapshot.windows),
+                "delta_windows",
+                RECONSTRUCTION_STEP_TIMEOUT_SECONDS,
+            )
+            if not win_err and win_res:
+                repositioned, failed_w = win_res
+                report.repositioned_windows.extend(repositioned)
+
+        # 3. Delta Clipboard
+        if snapshot.clipboard and snapshot.clipboard.content:
+            await _safe_execute(
+                restore_clipboard(snapshot.clipboard),
+                "delta_clipboard",
+                RECONSTRUCTION_STEP_TIMEOUT_SECONDS,
+            )
+
+        report.duration_ms = int((time.monotonic() - start_time) * 1000)
+        report.success = True
+        report.steps_completed.append("delta_sync_completed")
+
+        rollback_mgr.record_post_reconstruction(
+            transfer_id=transfer_id,
+            launched_apps=report.launched_apps,
+            opened_tabs=report.restored_tabs,
+        )
+        logger.info(
+            "[DeltaSync] Differential reconstruction completed in %dms (tabs=%d, wins=%d)",
+            report.duration_ms, len(report.restored_tabs), len(report.repositioned_windows),
+        )
+        return report
 
     # ── Step 1: Log Stack Replay ──────────────────────────────────────────────
     if getattr(snapshot, "log_stack_data", None):
@@ -174,36 +236,34 @@ async def reconstruct_workspace(snapshot: WorkspaceSnapshot, transfer_id: str) -
             log_queue = WorkspaceLogQueue.from_dict(snapshot.log_stack_data)
             entries = log_queue.snapshot()
 
-            # 1a. Browser tabs from log (Auto-launch normal Chrome)
-            tab_urls = [
-                e.url for e in entries
+            # 1a. Browser tabs from log (Auto-launch normal Chrome with reading scroll depth)
+            tab_entries = [
+                e for e in entries
                 if e.entry_type == LogEntryType.BROWSER_TAB and e.url
             ]
-            if tab_urls:
-                new_urls = []
-                for url in tab_urls:
-                    url_norm = url.rstrip("/")
+            if tab_entries:
+                tabs_to_open = []
+                for entry in tab_entries:
+                    url_norm = entry.url.rstrip("/")
                     if url_norm in already_opened_urls:
-                        report.reused_items.append(f"Tab (already open): {url}")
+                        report.reused_items.append(f"Tab (already open): {entry.url}")
                     else:
-                        new_urls.append(url)
+                        tabs_to_open.append({
+                            "url": entry.url,
+                            "scroll_y": getattr(entry, "scroll_y", 0),
+                            "scroll_ratio": getattr(entry, "scroll_ratio", 0.0),
+                        })
 
-                if new_urls:
-                    from services.chrome_launcher.chrome_manager import launch_normal_chrome
-                    opened_ok = launch_normal_chrome(new_urls, new_window=True)
-                    if not opened_ok:
-                        import webbrowser
-                        for u in new_urls:
-                            try:
-                                webbrowser.open(u)
-                            except Exception as exc:
-                                logger.warning("[LogReplay] Failed to open %s: %s", u, exc)
-                                report.failed_items.append(f"Browser tab: {u} ({exc})")
-                    for u in new_urls:
+                if tabs_to_open:
+                    from services.chrome_launcher.chrome_manager import open_tabs_with_scroll
+                    opened_urls, failed_urls = await open_tabs_with_scroll(tabs_to_open)
+                    for u in opened_urls:
                         already_opened_urls.add(u.rstrip("/"))
                         report.restored_tabs.append(u)
-                        logger.info("[LogReplay] Opened tab: %s", u)
-                report.steps_completed.append(f"log_stack_replay ({len(tab_urls)} tabs)")
+                        logger.info("[LogReplay] Opened tab with scroll depth: %s", u)
+                    for u in failed_urls:
+                        report.failed_items.append(f"Browser tab: {u}")
+                report.steps_completed.append(f"log_stack_replay ({len(tab_entries)} tabs)")
 
             # 1b. Clipboard from log
             clip_entries = [
@@ -285,14 +345,47 @@ async def reconstruct_workspace(snapshot: WorkspaceSnapshot, transfer_id: str) -
     else:
         report.steps_completed.append("browser (skipped: empty)")
 
-    # ── Step 3: Window reposition (smart reuse & reorient) ─────────────────────
-    if "windows" in RECONSTRUCTION_LAUNCH_SEQUENCE and snapshot.windows:
+    # ── Step 3: Window reposition (smart reuse, multi-monitor & DPI reorient) ──
+    windows_to_restore = list(snapshot.windows) if snapshot.windows else []
+    if not windows_to_restore and getattr(snapshot, "log_stack_data", None):
+        try:
+            from services.workspace_logger.log_stack import WorkspaceLogQueue, LogEntryType
+            log_q = WorkspaceLogQueue.from_dict(snapshot.log_stack_data)
+            for entry in log_q.snapshot():
+                if entry.entry_type in (LogEntryType.WINDOW, LogEntryType.FOREGROUND) and entry.window_title:
+                    rect = entry.window_rect or {}
+                    windows_to_restore.append(WindowState(
+                        title=entry.window_title,
+                        process_name=entry.process_name,
+                        exe_path=entry.exe_path,
+                        window_class=entry.window_class,
+                        z_order=entry.z_order,
+                        x=rect.get("left", 0),
+                        y=rect.get("top", 0),
+                        width=rect.get("width", rect.get("right", 0) - rect.get("left", 0)),
+                        height=rect.get("height", rect.get("bottom", 0) - rect.get("top", 0)),
+                        rel_x=rect.get("rel_x", 0.0),
+                        rel_y=rect.get("rel_y", 0.0),
+                        rel_width=rect.get("rel_width", 0.0),
+                        rel_height=rect.get("rel_height", 0.0),
+                        screen_width=rect.get("screen_width", 1920),
+                        screen_height=rect.get("screen_height", 1080),
+                        quadrant=rect.get("quadrant", "full"),
+                        monitor_index=entry.monitor_index or rect.get("monitor_index", 0),
+                        dpi=entry.dpi or rect.get("dpi", 96),
+                        is_maximized=False,
+                        is_minimized=entry.is_minimised,
+                    ))
+        except Exception as exc:
+            logger.debug("[Reconstruction] Could not synthesize windows from log stack: %s", exc)
+
+    if "windows" in RECONSTRUCTION_LAUNCH_SEQUENCE and windows_to_restore:
         # Wait a moment for any newly opened windows
         if report.launched_apps or ("browser" in report.steps_completed and not report.steps_completed[-1].endswith("(skipped: empty)")):
             await asyncio.sleep(1.5)
             
         res, err = await _safe_execute(
-            restore_windows(snapshot.windows),
+            restore_windows(windows_to_restore),
             "windows",
             RECONSTRUCTION_STEP_TIMEOUT_SECONDS,
         )
@@ -307,9 +400,9 @@ async def reconstruct_workspace(snapshot: WorkspaceSnapshot, transfer_id: str) -
                 for w in failed_wins:
                     report.failed_items.append(f"Window not found on B: {w}")
                 report.steps_completed.append(
-                    f"windows ({success_count}/{len(snapshot.windows)} repositioned)")
-                if success_count < len(snapshot.windows):
-                    report.warnings.append(f"Only repositioned {success_count}/{len(snapshot.windows)} windows")
+                    f"windows ({success_count}/{len(windows_to_restore)} repositioned)")
+                if success_count < len(windows_to_restore):
+                    report.warnings.append(f"Only repositioned {success_count}/{len(windows_to_restore)} windows")
     else:
         report.steps_completed.append("windows (skipped: empty)")
 
@@ -372,6 +465,20 @@ async def reconstruct_workspace(snapshot: WorkspaceSnapshot, transfer_id: str) -
         )
     except Exception as exc:
         logger.warning("[Reconstruct] Notification failed: %s", exc)
+
+    # Record post-reconstruction state in rollback manager for instant undo
+    rollback_mgr.record_post_reconstruction(
+        transfer_id=transfer_id,
+        launched_apps=report.launched_apps,
+        opened_tabs=report.restored_tabs,
+    )
+
+    # Cache full snapshot as inbound baseline on Target B for future Delta Sync
+    try:
+        from services.delta_sync.delta_engine import get_delta_engine
+        get_delta_engine().set_inbound_base(snapshot.source_device_id, snapshot)
+    except Exception as exc:
+        logger.debug("[DeltaSync] Failed to cache inbound base: %s", exc)
 
     logger.info(
         "Reconstruction completed in %dms. Success=%s, launched=%d, tabs=%d, failed=%d",

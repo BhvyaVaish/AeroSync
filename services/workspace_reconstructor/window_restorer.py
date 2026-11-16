@@ -125,14 +125,17 @@ def _find_window_by_process(process_name: str, exe_path: str = "") -> int:
     return found_hwnd[0]
 
 
-def _reposition_window(hwnd: int, win: WindowState) -> bool:
+def _reposition_window(
+    hwnd: int,
+    win: WindowState,
+    target_monitors: Optional[List[Any]] = None,
+) -> bool:
     """
     Apply position/state from WindowState to the given hwnd.
-    Smart coordinate mapping:
-      If Target B has a different screen resolution from Host A,
-      maps proportional divided screen coordinates (rel_x, rel_y, rel_width, rel_height)
-      so the window is placed at the exact corresponding relative position & quadrant.
-      If resolutions match, uses exact pixel coordinates.
+    Smart Multi-Monitor & DPI mapping:
+      • Uses compute_target_window_rect to map across multi-to-single or multi-to-multi monitor setups
+      • Handles per-monitor DPI scaling without distortion
+      • Clamps strictly within target monitor boundaries
     """
     try:
         if win.is_maximized:
@@ -144,31 +147,30 @@ def _reposition_window(hwnd: int, win: WindowState) -> bool:
 
         user32.ShowWindow(hwnd, SW_RESTORE)
 
-        target_screen_w = user32.GetSystemMetrics(0) or 1920
-        target_screen_h = user32.GetSystemMetrics(1) or 1080
+        if target_monitors is None:
+            target_screen_w = user32.GetSystemMetrics(0) or 1920
+            target_screen_h = user32.GetSystemMetrics(1) or 1080
+            from services.monitor_mapping.monitor_mapper import get_monitors
+            from shared.types.workspace_types import MonitorInfo
+            real_mons = get_monitors()
+            if real_mons and (real_mons[0].width != target_screen_w or real_mons[0].height != target_screen_h):
+                target_monitors = [
+                    MonitorInfo(
+                        monitor_index=0,
+                        x=0,
+                        y=0,
+                        width=target_screen_w,
+                        height=target_screen_h,
+                        is_primary=True,
+                        dpi=real_mons[0].dpi,
+                        dpi_scale=real_mons[0].dpi_scale,
+                    )
+                ]
+            else:
+                target_monitors = real_mons
 
-        # Check if proportional mapping is appropriate
-        has_proportional = (
-            getattr(win, "rel_width", 0.0) > 0 and getattr(win, "rel_height", 0.0) > 0
-        )
-        has_diff_res = (
-            getattr(win, "screen_width", 0) > 0
-            and getattr(win, "screen_height", 0) > 0
-            and (win.screen_width != target_screen_w or win.screen_height != target_screen_h)
-        )
-
-        if has_proportional and has_diff_res:
-            dest_w = max(150, int(win.rel_width * target_screen_w))
-            dest_h = max(100, int(win.rel_height * target_screen_h))
-            dest_x = int(win.rel_x * target_screen_w)
-            dest_y = int(win.rel_y * target_screen_h)
-            dest_x = max(0, min(dest_x, target_screen_w - dest_w))
-            dest_y = max(0, min(dest_y, target_screen_h - dest_h))
-        else:
-            dest_x = win.x
-            dest_y = win.y
-            dest_w = win.width
-            dest_h = win.height
+        from services.monitor_mapping.monitor_mapper import compute_target_window_rect
+        dest_x, dest_y, dest_w, dest_h = compute_target_window_rect(win, target_monitors=target_monitors)
 
         user32.SetWindowPos(
             hwnd,
@@ -187,23 +189,29 @@ def _reposition_window(hwnd: int, win: WindowState) -> bool:
 
 async def restore_windows(
     windows: List[WindowState],
+    target_monitors: Optional[List[Any]] = None,
 ) -> Tuple[int, List[str], List[str]]:
     """
     Restore window positions on Target B.
 
     For each WindowState from Host A:
       1. Find matching window on B using smart matching.
-      2. If found → reposition/reorient it (reuse existing window).
+      2. If found → reposition/reorient it using multi-monitor & DPI mapping (reuse existing window).
       3. If not found → record as failed.
 
     Args:
         windows: List of WindowState objects from Host A snapshot.
+        target_monitors: Optional list of target MonitorInfo objects (defaults to local monitors).
 
     Returns:
         (success_count, repositioned_titles, failed_titles)
     """
     repositioned: List[str] = []
     failed: List[str] = []
+
+    if target_monitors is None:
+        from services.monitor_mapping.monitor_mapper import get_monitors
+        target_monitors = get_monitors()
 
     for win in windows:
         hwnd, found = _find_window_smart(
@@ -218,10 +226,10 @@ async def restore_windows(
             found = hwnd != 0
 
         if found and hwnd:
-            ok = _reposition_window(hwnd, win)
+            ok = _reposition_window(hwnd, win, target_monitors=target_monitors)
             if ok:
                 repositioned.append(win.title)
-                logger.debug("Repositioned window: %s", win.title)
+                logger.debug("Repositioned window with multi-monitor mapping: %s", win.title)
             else:
                 failed.append(win.title)
         else:

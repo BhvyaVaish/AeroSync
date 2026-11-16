@@ -219,6 +219,42 @@ class NodeBasedGestureAnalyzer:
         self.openness_history.append(nodes.openness_score)
         self.timestamps.append(timestamp)
 
+    def get_current_velocity(self) -> Vector3D:
+        """Compute current 3D velocity vector of the Palm Center Pivot (units/second)."""
+        if len(self.palm_trajectory) < 2 or len(self.timestamps) < 2:
+            return Vector3D(0.0, 0.0, 0.0)
+        pts = list(self.palm_trajectory)
+        times = list(self.timestamps)
+        count = min(3, len(pts))
+        dt = max(1e-4, times[-1] - times[-count])
+        return (pts[-1] - pts[-count]) * (1.0 / dt)
+
+    def get_predicted_trajectory(self, steps: int = 6, step_dt: float = 0.06) -> List[Vector3D]:
+        """
+        Extrapolate future positions of the Palm Center Node based on velocity and momentum.
+        Applies a smooth damping factor to simulate physical trajectory decay.
+        """
+        if not self.palm_trajectory:
+            return []
+        vel = self.get_current_velocity()
+        if vel.magnitude < 0.08:
+            return []
+        curr = self.palm_trajectory[-1]
+        predicted: List[Vector3D] = []
+        pos = curr
+        cur_vel = vel
+        damping = 0.86
+        for _ in range(steps):
+            pos = pos + cur_vel * step_dt
+            cur_vel = cur_vel * damping
+            predicted.append(pos)
+        return predicted
+
+    def get_past_trajectory(self, max_points: int = 8) -> List[Vector3D]:
+        """Return the recent past palm center trajectory for the comet tail."""
+        pts = list(self.palm_trajectory)
+        return pts[-max_points:]
+
     def detect_kinematic_throw(self) -> Tuple[bool, float]:
         """
         High-accuracy node-based throw detection:
@@ -345,4 +381,77 @@ class NodeBasedGestureAnalyzer:
         if displacement < 0.06 and nodes.openness_score > 0.65:
             conf = min(0.98, 0.80 + nodes.openness_score * 0.15)
             return True, round(conf, 2)
+        return False, 0.0
+
+    def detect_kinematic_undo(self, nodes: KinematicHandNodes) -> Tuple[bool, float]:
+        """
+        High-accuracy node-based UNDO / Rollback gesture detection:
+        
+        Supports two complementary, non-ambiguous gesture modalities:
+        1. Peace / 'V' Sign (Index + Middle extended, Ring + Pinky curled, Palm facing camera):
+           - Palm faces camera: nodes.palm_normal.z < -0.35
+           - Index & Middle fingers extended: flexion_angles > 120, tip_extension_ratios > 1.10
+           - Ring & Pinky fingers curled: flexion_angles < 110, tip_extension_ratios < 1.15
+           - Stable stationarity (not mid-twitch)
+        2. Leftward Rewind Swipe (Fast horizontal leftward sweep):
+           - Hand open (openness_score >= 0.45)
+           - Negative horizontal velocity (avg_vx < -0.55)
+        
+        Returns:
+            Tuple of (is_undo, confidence 0.0 - 1.0).
+        """
+        # 1. Check Peace / 'V' Sign pose
+        palm_z_threshold = -0.35
+        if self.calibration_profile and self.calibration_profile.is_calibrated:
+            palm_z_threshold = self.calibration_profile.tuned_palm_z_threshold
+
+        if nodes.palm_normal.z < palm_z_threshold:
+            idx_angle = nodes.flexion_angles.get("index", 0.0)
+            mid_angle = nodes.flexion_angles.get("middle", 0.0)
+            ring_angle = nodes.flexion_angles.get("ring", 180.0)
+            pinky_angle = nodes.flexion_angles.get("pinky", 180.0)
+
+            idx_ratio = nodes.tip_extension_ratios.get("index", 0.0)
+            mid_ratio = nodes.tip_extension_ratios.get("middle", 0.0)
+            ring_ratio = nodes.tip_extension_ratios.get("ring", 2.0)
+            pinky_ratio = nodes.tip_extension_ratios.get("pinky", 2.0)
+
+            # V-Sign conditions
+            v_sign = (
+                idx_angle > 120.0
+                and idx_ratio > 1.10
+                and mid_angle > 120.0
+                and mid_ratio > 1.10
+                and ring_angle < 110.0
+                and ring_ratio < 1.15
+                and pinky_angle < 110.0
+                and pinky_ratio < 1.15
+            )
+
+            if v_sign:
+                # Stationarity check to avoid false fires during fast flailing
+                if len(self.palm_trajectory) >= 3:
+                    pts = list(self.palm_trajectory)[-3:]
+                    movement = (pts[-1] - pts[0]).magnitude
+                    if movement < 0.16:
+                        conf = min(0.99, max(0.85, 0.75 + (idx_angle + mid_angle) / 360.0 * 0.20))
+                        return True, round(conf, 2)
+                else:
+                    return True, 0.88
+
+        # 2. Check Leftward Rewind Swipe
+        if len(self.palm_trajectory) >= 3 and len(self.timestamps) >= 3:
+            pts = list(self.palm_trajectory)
+            times = list(self.timestamps)
+            velocities_x: List[float] = []
+            for i in range(1, len(pts)):
+                dt = max(1e-4, times[i] - times[i - 1])
+                vx = (pts[i].x - pts[i - 1].x) / dt
+                velocities_x.append(vx)
+            if velocities_x:
+                avg_vx = sum(velocities_x[-3:]) / len(velocities_x[-3:])
+                if avg_vx < -0.55 and nodes.openness_score >= 0.45:
+                    conf = min(0.98, max(0.85, 0.70 + abs(avg_vx) * 0.25))
+                    return True, round(conf, 2)
+
         return False, 0.0

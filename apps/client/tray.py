@@ -36,10 +36,11 @@ def _create_tray_icon_image(color: str = "#00f5d4") -> Image.Image:
 
     # Center glowing star node (colored by current state)
     rgb_map = {
-        "cyan": (0, 245, 212),     # Neutral / Target
-        "gold": (255, 179, 0),     # Host A armed
-        "purple": (168, 85, 247),  # Candidate B
-        "green": (52, 211, 153),   # Transfer complete
+        "cyan":   (0, 245, 212),     # Neutral / Target
+        "gold":   (255, 179, 0),     # Host A armed
+        "purple": (168, 85, 247),    # Candidate B
+        "green":  (52, 211, 153),    # Transfer complete
+        "amber":  (251, 146, 60),    # Eco-Mode active (battery)
     }
     node_rgb = rgb_map.get(color, (0, 245, 212))
 
@@ -103,6 +104,32 @@ class AeroSyncTray:
         except Exception as e:
             logger.debug(f"[Tray] Could not update icon state: {e}")
 
+    def update_eco_mode(self, eco_active: bool) -> None:
+        """
+        Overlay the eco-mode badge on the tray icon and tooltip.
+
+        When eco-mode is active the icon title gains a ⚡ ECO suffix and the
+        node colour is overridden with amber to draw the user's attention.
+        When deactivated it returns to whatever role colour is current.
+        """
+        if not self._icon:
+            return
+        try:
+            if eco_active:
+                self._icon.icon = _create_tray_icon_image("amber")
+                # Append eco suffix to existing title
+                base = getattr(self._icon, "title", "AeroSync")
+                # Strip any old ECO suffix first
+                base = base.replace(" ⚡ ECO", "")
+                self._icon.title = base + " ⚡ ECO"
+            else:
+                # Remove ECO badge; revert to default icon
+                base = getattr(self._icon, "title", "AeroSync")
+                self._icon.title = base.replace(" ⚡ ECO", "")
+                self._icon.icon = _create_tray_icon_image("cyan")
+        except Exception as e:
+            logger.debug("[Tray] Could not update eco badge: %s", e)
+
     def _run_tray(self) -> None:
         import pystray
         from apps.client.autostart import is_autostart_enabled, toggle_autostart
@@ -136,6 +163,11 @@ class AeroSyncTray:
             from services.gesture_engine.gesture_types import GestureType
             logger.info("[Tray] Manual trigger: THROW (Claim Target)")
             self.orchestrator._on_gesture(GestureType.THROW)
+
+        def on_undo(icon, item):
+            from services.gesture_engine.gesture_types import GestureType
+            logger.info("[Tray] Manual trigger: UNDO Workspace Rollback")
+            self.orchestrator._on_gesture(GestureType.UNDO)
 
         def on_reset(icon, item):
             logger.info("[Tray] Manual trigger: Reset Constellation")
@@ -174,6 +206,7 @@ class AeroSyncTray:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Capture Workspace (Ctrl+Alt+C / Fist ✊)", on_arm_host),
             pystray.MenuItem("Claim Target (Ctrl+Alt+L / Throw 🚀)", on_claim_target),
+            pystray.MenuItem("Undo Workspace Rollback (Ctrl+Alt+Z / ✌) ↩", on_undo),
             pystray.MenuItem("Reconnect Relay ⚡", on_reconnect),
             pystray.MenuItem("Reset to Neutral 🔄", on_reset),
             pystray.Menu.SEPARATOR,

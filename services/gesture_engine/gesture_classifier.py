@@ -105,6 +105,11 @@ class GestureClassifier:
         if is_fist:
             return (GestureType.FIST, fist_conf)
 
+        # 5b. ── UNDO Detection (Workspace Rollback: Peace 'V' or Left Swipe) ──
+        is_undo, undo_conf = analyzer.detect_kinematic_undo(nodes)
+        if is_undo:
+            return (GestureType.UNDO, undo_conf)
+
         # 6. ── CANCEL (rapid downward swipe) ────────────────────────────────
         if buffer and buffer.vertical_velocity > 0.15:
             return (GestureType.CANCEL, 0.90)

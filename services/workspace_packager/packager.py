@@ -185,6 +185,10 @@ def unpack_package(encrypted_payload: bytes, aes_key: bytes, expected_checksum: 
             capture_warnings=data.get("capture_warnings", []),
             screen_content=screen_content,
             action_plan=action_plan,
+            log_stack_data=data.get("log_stack_data"),
+            is_delta=data.get("is_delta", False),
+            base_snapshot_id=data.get("base_snapshot_id"),
+            delta_summary=data.get("delta_summary"),
         )
         return snapshot
         

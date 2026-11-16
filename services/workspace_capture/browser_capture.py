@@ -53,12 +53,24 @@ async def capture_browser_state(port: int = 9222) -> List[BrowserState]:
         url_str = item.get("url", "")
         if url_str.startswith("chrome-extension://") or url_str.startswith("devtools://"):
             continue
-            
+
+        ws_url = item.get("webSocketDebuggerUrl")
+        scroll_y = 0
+        scroll_ratio = 0.0
+        if ws_url:
+            try:
+                from services.chrome_launcher.chrome_manager import async_fetch_tab_scroll
+                scroll_y, scroll_ratio = await async_fetch_tab_scroll(ws_url, timeout=0.4)
+            except Exception:
+                pass
+
         tab = TabInfo(
             url=url_str,
             title=item.get("title", ""),
             tab_id=item.get("id"),
-            favicon_url=item.get("faviconUrl")
+            favicon_url=item.get("faviconUrl"),
+            scroll_y=scroll_y,
+            scroll_ratio=scroll_ratio,
         )
         
         # Chrome CDP doesn't directly expose the window ID via the simple /json endpoint

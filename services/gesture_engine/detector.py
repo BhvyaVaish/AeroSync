@@ -8,6 +8,7 @@ classifier, and state machine, and exposes gesture events via callbacks.
 import threading
 import time
 import logging
+import sys
 from typing import Callable, List, Optional
 import traceback
 
@@ -24,6 +25,35 @@ from services.gesture_engine.user_calibration import TenSecondCalibrator
 from shared.constants import GESTURE_FPS
 
 logger = logging.getLogger(__name__)
+
+# Win32 Power Management flags to prevent webcam / USB / system sleep
+ES_SYSTEM_REQUIRED = 0x00000001
+ES_CONTINUOUS = 0x80000000
+
+
+def _prevent_webcam_and_system_sleep() -> None:
+    """
+    Prevent Windows from putting the system, USB bus, or connected webcams
+    into low-power sleep/suspend mode while AeroSync is listening for touchless gestures.
+    """
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+            logger.info("[GestureDetector] Keep-alive active: Windows USB/webcam sleep inhibited for touchless gesture detection")
+        except Exception as exc:
+            logger.debug("[GestureDetector] SetThreadExecutionState error: %s", exc)
+
+
+def _restore_webcam_and_system_sleep() -> None:
+    """Restore normal Windows power management on detector shutdown."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            logger.info("[GestureDetector] Windows power management state restored")
+        except Exception as exc:
+            logger.debug("[GestureDetector] SetThreadExecutionState restore error: %s", exc)
 
 
 class GestureDetector:
@@ -60,6 +90,7 @@ class GestureDetector:
         
         # Metrics
         self._fps = 0.0
+        self._target_fps: int = GESTURE_FPS
         self._hands_detected = 0
         self._last_event: Optional[GestureEvent] = None
         
@@ -70,6 +101,19 @@ class GestureDetector:
     def add_callback(self, callback: Callable[[GestureEvent], None]):
         """Register a callback for confirmed gesture events."""
         self.event_callbacks.append(callback)
+
+    def set_target_fps(self, fps: int) -> None:
+        """
+        Dynamically update processing rate without stopping or sleeping the camera.
+        The webcam remains continuously powered and streaming for touchless gestures.
+        """
+        old_fps = self._target_fps
+        self._target_fps = max(1, min(60, int(fps)))
+        logger.info(
+            "[GestureDetector] Target FPS updated %d -> %d (camera active, no sleep)",
+            old_fps,
+            self._target_fps,
+        )
         
     def _handle_event(self, event: GestureEvent):
         """Internal handler called by State Machine."""
@@ -166,6 +210,7 @@ class GestureDetector:
     def _run_loop(self):
         """Main camera and processing loop."""
         cap = None
+        _prevent_webcam_and_system_sleep()
         try:
             if MEDIAPIPE_AVAILABLE:
                 # Only try to open camera if we're not using the mock
@@ -179,7 +224,6 @@ class GestureDetector:
             
             self._state = EngineState.RUNNING
             
-            frame_time = 1.0 / GESTURE_FPS
             last_time = time.monotonic()
             frames_processed = 0
             fps_last_calc = time.monotonic()
@@ -187,6 +231,7 @@ class GestureDetector:
             while not self._stop_event.is_set():
                 now = time.monotonic()
                 elapsed = now - last_time
+                frame_time = 1.0 / max(1, self._target_fps)
                 
                 # Enforce target FPS
                 if elapsed < frame_time:
@@ -274,13 +319,25 @@ class GestureDetector:
                     else None
                 )
                 cal_text = self._calibration_instruction if self.calibrator.is_active else None
+                # Build predictive trajectory comet data from kinematic analyzers
+                trajectory_map = {}
+                for h_name, analyzer in self.classifier.node_analyzers.items():
+                    trajectory_map[h_name] = {
+                        "velocity": analyzer.get_current_velocity(),
+                        "predicted": analyzer.get_predicted_trajectory(steps=6, step_dt=0.06),
+                        "past": analyzer.get_past_trajectory(max_points=8),
+                    }
+
                 hud_frame = draw_cosmic_hud(
                     frame,
                     hands,
+                    nodes_map=self.classifier.last_nodes,
                     gesture_name=active_gesture,
                     calibration_text=cal_text,
                     sensor_alert=self._current_sensor_alert,
                     two_hand_suppressed=self._two_hand_suppressed,
+                    eco_mode=(self._target_fps <= 5),
+                    trajectory_data=trajectory_map,
                 )
 
                 # Store latest frame safely for the corner camera widget
@@ -300,5 +357,6 @@ class GestureDetector:
             logger.error(f"Gesture detection engine crashed: {e}")
             logger.error(traceback.format_exc())
         finally:
+            _restore_webcam_and_system_sleep()
             if cap:
                 cap.release()

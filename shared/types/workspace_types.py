@@ -22,6 +22,8 @@ class TabInfo:
     is_active: bool = False
     favicon_url: Optional[str] = None
     index: int = 0
+    scroll_y: int = 0
+    scroll_ratio: float = 0.0
 
 
 @dataclass
@@ -52,6 +54,7 @@ class WindowState:
     width: int = 0
     height: int = 0
     monitor_index: int = 0
+    dpi: int = 96
     is_minimized: bool = False
     is_maximized: bool = False
     is_focused: bool = False
@@ -76,6 +79,8 @@ class MonitorInfo:
     width: int = 0
     height: int = 0
     is_primary: bool = False
+    dpi: int = 96
+    dpi_scale: float = 1.0
 
 
 @dataclass
@@ -96,6 +101,7 @@ class WindowPlacement:
     width: int = 0
     height: int = 0
     monitor_index: int = 0
+    dpi: int = 96
     is_minimized: bool = False
     is_maximized: bool = False
 
@@ -142,6 +148,11 @@ class WorkspaceSnapshot:
     # Serialised WorkspaceLogQueue dict produced by the OS Logger on Host A.
     # Present only when the gesture-triggered capture path is used.
     log_stack_data: Optional[dict] = None   # WorkspaceLogQueue.to_dict()
+
+    # --- Delta Sync fields ---
+    is_delta: bool = False
+    base_snapshot_id: Optional[str] = None
+    delta_summary: Optional[dict] = None
 
 
 @dataclass

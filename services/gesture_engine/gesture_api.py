@@ -45,6 +45,11 @@ def stop_gesture_detection():
     detector.stop()
 
 
+def get_detector() -> GestureDetector:
+    """Return the global GestureDetector instance for live rate and status control."""
+    return detector
+
+
 def _broadcast_event(event: GestureEvent):
     """Callback fired by the detector to broadcast events to WS clients."""
     if not active_connections:

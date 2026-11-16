@@ -74,11 +74,15 @@ class LogEntry:
     window_title: str = ""
     window_rect: Optional[Dict[str, int]] = None   # {left, top, right, bottom}
     is_minimised: bool = False
+    monitor_index: int = 0      # Target display monitor index (0 = primary)
+    dpi: int = 96               # Monitor DPI at capture (96 = 100% scaling)
 
     # Browser
     url: str = ""
     page_title: str = ""
     browser: str = ""   # "chrome" | "edge" | "firefox"
+    scroll_y: int = 0          # Vertical pixel scroll offset on page
+    scroll_ratio: float = 0.0  # Normalized scroll depth (0.0 to 1.0)
 
     # Clipboard
     clipboard_text: str = ""

@@ -117,8 +117,12 @@ def _enum_visible_windows() -> List[Dict]:
     """Return list of dicts for every visible top-level window, with z-order index and divided screen coordinates."""
     results: List[Dict] = []
     fg_hwnd = user32.GetForegroundWindow()
-    screen_w = user32.GetSystemMetrics(0) or 1920
-    screen_h = user32.GetSystemMetrics(1) or 1080
+    from services.monitor_mapping.monitor_mapper import (
+        get_monitors,
+        find_monitor_for_rect,
+        compute_divided_coordinates,
+    )
+    monitors = get_monitors()
 
     @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
     def _callback(hwnd: int, _: int) -> bool:
@@ -140,38 +144,29 @@ def _enum_visible_windows() -> List[Dict]:
             z_order = len(results)  # enumeration order = z-order (topmost first)
             is_fg = (hwnd == fg_hwnd)
 
-            # Enhanced normalized coordinates
+            # Enhanced multi-monitor & DPI normalized coordinates
             enriched_rect = None
+            mon_idx = 0
+            win_dpi = 96
             if rect:
                 w = max(1, rect["right"] - rect["left"])
                 h = max(1, rect["bottom"] - rect["top"])
-                rel_x = round(rect["left"] / screen_w, 4)
-                rel_y = round(rect["top"] / screen_h, 4)
-                rel_w = round(w / screen_w, 4)
-                rel_h = round(h / screen_h, 4)
-                mid_x = rect["left"] + w / 2
-                mid_y = rect["top"] + h / 2
-                if rel_w >= 0.9 and rel_h >= 0.9:
-                    quadrant = "full"
-                elif mid_x < screen_w / 2 and mid_y < screen_h / 2:
-                    quadrant = "top-left"
-                elif mid_x >= screen_w / 2 and mid_y < screen_h / 2:
-                    quadrant = "top-right"
-                elif mid_x < screen_w / 2 and mid_y >= screen_h / 2:
-                    quadrant = "bottom-left"
-                else:
-                    quadrant = "bottom-right"
+                mon_idx, mon = find_monitor_for_rect(rect["left"], rect["top"], w, h, monitors)
+                div = compute_divided_coordinates(rect["left"], rect["top"], w, h, mon)
+                win_dpi = mon.dpi
                 enriched_rect = {
                     **rect,
                     "width": w,
                     "height": h,
-                    "rel_x": rel_x,
-                    "rel_y": rel_y,
-                    "rel_width": rel_w,
-                    "rel_height": rel_h,
-                    "screen_width": screen_w,
-                    "screen_height": screen_h,
-                    "quadrant": quadrant,
+                    "rel_x": div["rel_x"],
+                    "rel_y": div["rel_y"],
+                    "rel_width": div["rel_width"],
+                    "rel_height": div["rel_height"],
+                    "screen_width": div["screen_width"],
+                    "screen_height": div["screen_height"],
+                    "quadrant": div["quadrant"],
+                    "monitor_index": mon_idx,
+                    "dpi": win_dpi,
                 }
 
             results.append({
@@ -184,6 +179,8 @@ def _enum_visible_windows() -> List[Dict]:
                 "z_order": z_order,
                 "is_foreground": is_fg,
                 "hwnd": hwnd,
+                "monitor_index": mon_idx,
+                "dpi": win_dpi,
             })
         return True  # continue enumeration
 
@@ -202,12 +199,12 @@ def _get_foreground_hwnd() -> int:
 _CDP_PORTS = [9222, 9223]  # Chrome=9222, Edge=9223
 
 
-def _fetch_browser_tabs() -> List[Dict[str, str]]:
+def _fetch_browser_tabs() -> List[Dict[str, Any]]:
     """
     Query Chrome / Edge DevTools Protocol (CDP) for open tabs.
-    Returns list of {url, title, browser}.
+    Returns list of {url, title, browser, scroll_y, scroll_ratio}.
     """
-    tabs: List[Dict[str, str]] = []
+    tabs: List[Dict[str, Any]] = []
     for port in _CDP_PORTS:
         try:
             url = CHROME_CDP_URL_TEMPLATE.format(port=port)
@@ -223,8 +220,23 @@ def _fetch_browser_tabs() -> List[Dict[str, str]]:
             for tab in page_tabs:
                 tab_url = tab.get("url", "")
                 tab_title = tab.get("title", "")
+                ws_url = tab.get("webSocketDebuggerUrl")
+                scroll_y = 0
+                scroll_ratio = 0.0
+                if ws_url:
+                    try:
+                        from services.chrome_launcher.chrome_manager import fetch_tab_scroll
+                        scroll_y, scroll_ratio = fetch_tab_scroll(ws_url, timeout=0.3)
+                    except Exception:
+                        pass
                 if tab_url:
-                    tabs.append({"url": tab_url, "title": tab_title, "browser": browser})
+                    tabs.append({
+                        "url": tab_url,
+                        "title": tab_title,
+                        "browser": browser,
+                        "scroll_y": scroll_y,
+                        "scroll_ratio": scroll_ratio,
+                    })
         except Exception:
             pass  # CDP not available on this port
     return tabs
@@ -274,6 +286,17 @@ class OSLogger:
         if self._thread:
             self._thread.join(timeout=3.0)
         logger.info("[OSLogger] Stopped")
+
+    def set_interval(self, interval_s: float) -> None:
+        """
+        Thread-safe update of the polling interval.
+
+        Takes effect on the *next* sleep boundary (up to the previous interval_s).
+        Called by EcoThrottleController to throttle/restore OS Logger polling rate.
+        """
+        old = self.interval_s
+        self.interval_s = max(0.1, float(interval_s))
+        logger.info("[OSLogger] Polling interval changed %.1f s → %.1f s", old, self.interval_s)
 
     def capture_snapshot(self) -> WorkspaceLogQueue:
         """
@@ -330,6 +353,8 @@ class OSLogger:
                     window_class=w.get("window_class", ""),
                     z_order=w.get("z_order", 0),
                     is_foreground=w.get("is_foreground", False),
+                    monitor_index=w.get("monitor_index", 0),
+                    dpi=w.get("dpi", 96),
                     is_minimised=False,
                 ))
         self._known_window_titles = current_titles
@@ -359,6 +384,8 @@ class OSLogger:
                     url=url,
                     page_title=tab["title"],
                     browser=tab["browser"],
+                    scroll_y=tab.get("scroll_y", 0),
+                    scroll_ratio=tab.get("scroll_ratio", 0.0),
                 ))
         self._known_tab_urls = current_urls
 

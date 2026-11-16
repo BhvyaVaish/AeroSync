@@ -30,19 +30,18 @@ async def send_workspace(
     region=None,
     log_stack=None,
     log_exclusion_set: Optional[Set[str]] = None,
+    target_lan_endpoint: Optional[dict] = None,
 ) -> bool:
     """
     Capture, package, and send the workspace to a target device.
 
     Args:
-        relay:              Authenticated RelayClient.
-        target_device_id:  Destination device ID.  When None, the relay routes
-                           within the constellation (target_claiming message
-                           already told the relay who to route to).
-        region:            Optional ScreenRegion to crop screen capture.
-        log_stack:         Pre-warmed WorkspaceLogQueue from the OS Logger
-                           (already populated at 1 Hz; instant access on FIST).
-        log_exclusion_set: Content-ID set from the log stack for OCR dedup.
+        relay:               Authenticated RelayClient.
+        target_device_id:    Destination device ID.
+        region:              Optional ScreenRegion to crop screen capture.
+        log_stack:           Pre-warmed WorkspaceLogQueue from the OS Logger.
+        log_exclusion_set:   Content-ID set from the log stack for OCR dedup.
+        target_lan_endpoint: Optional direct LAN socket endpoint (ip, port) for Gigabit P2P transfer.
 
     Returns:
         True if successfully sent, False otherwise.
@@ -68,6 +67,23 @@ async def send_workspace(
             except Exception as exc:
                 logger.warning("Failed to embed log stack: %s", exc)
 
+        # 2b. Delta Sync: prepare differential snapshot if base exists
+        try:
+            from services.delta_sync.delta_engine import get_delta_engine
+            delta_engine = get_delta_engine()
+            snapshot = delta_engine.prepare_outbound_snapshot(target_device_id, snapshot)
+            if snapshot.is_delta:
+                logger.info(
+                    "[DeltaSync] Beaming DIFFERENTIAL snapshot (base=%s): %s",
+                    snapshot.base_snapshot_id,
+                    snapshot.delta_summary,
+                )
+                show_toast("AeroSync ⚡ Delta Sync", "Beaming modified workspace changes…")
+            else:
+                logger.info("[DeltaSync] Beaming FULL baseline snapshot (%s)", snapshot.snapshot_id)
+        except Exception as exc:
+            logger.debug("[DeltaSync] Delta prep failed (proceeding full): %s", exc)
+
         # 3. Package & Encrypt
         package = create_package(snapshot)
         logger.info("Packaged size: %d bytes", package.total_size_bytes)
@@ -79,7 +95,30 @@ async def send_workspace(
         except Exception:
             pass
 
-        # 4. Initiate Session on relay
+        # 4a. Zero-Cloud Direct Gigabit LAN P2P Transfer (Priority 1)
+        if target_lan_endpoint:
+            lan_ip = target_lan_endpoint.get("ip")
+            lan_port = target_lan_endpoint.get("port")
+            if lan_ip and lan_port:
+                logger.info("[LanP2P] Attempting direct LAN socket beam to %s:%d", lan_ip, lan_port)
+                show_toast("AeroSync P2P", "Direct LAN Gigabit Beam connecting…")
+                from services.lan_transfer.lan_p2p import LanP2PSender
+                p2p_ok = await LanP2PSender.send_direct_lan(
+                    ip=lan_ip,
+                    port=lan_port,
+                    transfer_id="lan-" + (target_device_id or "p2p"),
+                    aes_key=package.aes_key,
+                    encrypted_payload=package.encrypted_payload,
+                    timeout_s=2.0,
+                )
+                if p2p_ok:
+                    logger.info("[LanP2P] Direct LAN P2P transfer successful! Zero-cloud gigabit transfer complete ⚡")
+                    show_toast("AeroSync ⚡", "Gigabit Direct LAN Beam Complete! (Zero-Cloud)")
+                    return True
+                else:
+                    logger.info("[LanP2P] Direct LAN connection unavailable or timed out — seamlessly falling back to Relay Server")
+
+        # 4b. Fallback: Initiate Session on relay
         transfer_id, error = await relay.initiate_session(target_device_id)
         if error:
             logger.error("Failed to initiate session: %s", error)

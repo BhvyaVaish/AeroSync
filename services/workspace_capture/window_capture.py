@@ -81,9 +81,13 @@ async def capture_windows() -> List[WindowState]:
     """
     windows: List[WindowState] = []
     z_order_counter = [0]  # mutable counter for enumeration order
-    screen_w = user32.GetSystemMetrics(0) or 1920
-    screen_h = user32.GetSystemMetrics(1) or 1080
-    
+    from services.monitor_mapping.monitor_mapper import (
+        get_monitors,
+        find_monitor_for_rect,
+        compute_divided_coordinates,
+    )
+    monitors = get_monitors()
+
     # Define the EnumWindows callback
     EnumWindowsProc = ctypes.WINFUNCTYPE(
         ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM
@@ -122,24 +126,9 @@ async def capture_windows() -> List[WindowState]:
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             proc_name = f"pid_{pid}"  # fallback if psutil fails
         
-        # Screen division coordinates
-        rel_x = round(x / screen_w, 4)
-        rel_y = round(y / screen_h, 4)
-        rel_w = round(w / screen_w, 4)
-        rel_h = round(h / screen_h, 4)
-
-        mid_x = x + w / 2
-        mid_y = y + h / 2
-        if rel_w >= 0.9 and rel_h >= 0.9:
-            quadrant = "full"
-        elif mid_x < screen_w / 2 and mid_y < screen_h / 2:
-            quadrant = "top-left"
-        elif mid_x >= screen_w / 2 and mid_y < screen_h / 2:
-            quadrant = "top-right"
-        elif mid_x < screen_w / 2 and mid_y >= screen_h / 2:
-            quadrant = "bottom-left"
-        else:
-            quadrant = "bottom-right"
+        # Multi-monitor & DPI screen division coordinates
+        mon_idx, mon = find_monitor_for_rect(x, y, w, h, monitors)
+        div = compute_divided_coordinates(x, y, w, h, mon)
 
         state = WindowState(
             hwnd=hwnd,
@@ -152,13 +141,15 @@ async def capture_windows() -> List[WindowState]:
             y=y,
             width=w,
             height=h,
-            rel_x=rel_x,
-            rel_y=rel_y,
-            rel_width=rel_w,
-            rel_height=rel_h,
-            screen_width=screen_w,
-            screen_height=screen_h,
-            quadrant=quadrant,
+            monitor_index=mon_idx,
+            dpi=mon.dpi,
+            rel_x=div["rel_x"],
+            rel_y=div["rel_y"],
+            rel_width=div["rel_width"],
+            rel_height=div["rel_height"],
+            screen_width=div["screen_width"],
+            screen_height=div["screen_height"],
+            quadrant=div["quadrant"],
             is_minimized=user32.IsIconic(hwnd) != 0,
             is_maximized=user32.IsZoomed(hwnd) != 0
         )

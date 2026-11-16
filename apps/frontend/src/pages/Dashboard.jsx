@@ -7,7 +7,8 @@ import { QueueMonitorWidget } from '../components/QueueMonitorWidget';
 import { SelectiveTransferModal } from '../components/SelectiveTransferModal';
 import {
   MonitorSmartphone, CloudUpload, Link as LinkIcon, Power,
-  CheckCircle, XCircle, Clock, Zap, Radio, BookOpen, CheckSquare
+  CheckCircle, XCircle, Clock, Zap, Radio, BookOpen, CheckSquare,
+  AlertTriangle, Keyboard, Battery, BatteryCharging
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useWebSocket } from '../services/websocket';
@@ -32,6 +33,74 @@ export const Dashboard = () => {
   const [hostPeer, setHostPeer] = useState(null);   // which peer is currently Host A
   const [showTutorial, setShowTutorial] = useState(window.location.hash === '#tutorial');
   const [showChecklist, setShowChecklist] = useState(window.location.hash === '#checklist');
+  const [shortcutToast, setShortcutToast] = useState(null);
+  const [batteryState, setBatteryState] = useState(null);
+
+  // Monitor battery state for Eco-Mode
+  useEffect(() => {
+    let batteryInstance = null;
+    let onLevelChange = null;
+    let onChargingChange = null;
+
+    if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
+      navigator.getBattery().then((battery) => {
+        batteryInstance = battery;
+        const updateStatus = () => {
+          const level = Math.round(battery.level * 100);
+          const charging = battery.charging;
+          const eco = !charging; // On battery = Eco-Mode active
+          setBatteryState({ level, charging, eco });
+        };
+        updateStatus();
+        onLevelChange = updateStatus;
+        onChargingChange = updateStatus;
+        battery.addEventListener('levelchange', onLevelChange);
+        battery.addEventListener('chargingchange', onChargingChange);
+      }).catch(() => {});
+    }
+
+    return () => {
+      if (batteryInstance) {
+        if (onLevelChange) batteryInstance.removeEventListener('levelchange', onLevelChange);
+        if (onChargingChange) batteryInstance.removeEventListener('chargingchange', onChargingChange);
+      }
+    };
+  }, []);
+
+  // Global browser fallback hotkey listener (Ctrl+Alt+C for Host A, Ctrl+Alt+L for Target B)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.altKey) {
+        const key = e.key.toLowerCase();
+        if (key === 'c') {
+          e.preventDefault();
+          setShortcutToast({
+            title: 'Shortcut: Ctrl + Alt + C',
+            desc: 'Host A Mode Activated — Capturing workspace ✊'
+          });
+          setRoleState('host');
+          setTimeout(() => setShortcutToast(null), 3500);
+        } else if (key === 'l' || key === 't') {
+          e.preventDefault();
+          setShortcutToast({
+            title: 'Shortcut: Ctrl + Alt + L',
+            desc: 'Target B Mode Activated — Claiming incoming workspace 🚀'
+          });
+          setRoleState('target');
+          setTimeout(() => setShortcutToast(null), 3500);
+        } else if (key === 'z') {
+          e.preventDefault();
+          setShortcutToast({
+            title: 'Shortcut: Ctrl + Alt + Z (or Peace ✌ Gesture)',
+            desc: 'Workspace Rollback Activated — Restoring pre-transfer state ↩'
+          });
+          setTimeout(() => setShortcutToast(null), 3500);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -98,7 +167,16 @@ export const Dashboard = () => {
           <h1>Workspace Overview</h1>
           <p className="subtitle">Manage your paired devices and active sessions</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {batteryState && (
+            <div
+              className={`eco-badge ${batteryState.eco ? 'eco-active' : 'eco-plugged'}`}
+              title={batteryState.eco ? 'On battery power — background capture and sensors throttled to save power' : 'Connected to AC power — full performance'}
+            >
+              {batteryState.charging ? <BatteryCharging size={16} /> : <Battery size={16} />}
+              <span>{batteryState.level}% {batteryState.eco ? '• ⚡ Eco Mode' : '• AC Power'}</span>
+            </div>
+          )}
           <Button
             variant="secondary"
             size="md"
@@ -117,6 +195,37 @@ export const Dashboard = () => {
           >
             Walkthrough Guide
           </Button>
+        </div>
+      </div>
+
+      {/* ── Shortcut Toast Popup ───────────────────────────────────────── */}
+      {shortcutToast && (
+        <div className="shortcut-active-toast glass-panel">
+          <Keyboard size={20} color="#00f5d4" />
+          <div>
+            <div style={{ color: '#00f5d4', fontWeight: 700 }}>{shortcutToast.title}</div>
+            <div style={{ fontSize: '0.78rem', color: '#e2e8f0' }}>{shortcutToast.desc}</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sensor & Camera Degradation Shortcut Fallback Banner ────────── */}
+      <div className="sensor-shortcut-banner">
+        <div className="sensor-shortcut-info">
+          <AlertTriangle size={18} className="sensor-alert-icon" />
+          <div className="sensor-alert-text">
+            <strong>Camera / Lighting Fallback:</strong> If gestures are degraded by low lighting or camera angles, trigger instantly:
+          </div>
+        </div>
+        <div className="shortcut-pill-group">
+          <span className="shortcut-pill">Ctrl + Alt + C</span>
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Capture (Host A)</span>
+          <span style={{ color: '#64748b' }}>•</span>
+          <span className="shortcut-pill">Ctrl + Alt + L</span>
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Launch (Target B)</span>
+          <span style={{ color: '#64748b' }}>•</span>
+          <span className="shortcut-pill">Ctrl + Alt + Z</span>
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Undo Rollback (✌)</span>
         </div>
       </div>
 

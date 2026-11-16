@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 HOTKEY_ID_CAPTURE = 1001  # Ctrl + Alt + C
 HOTKEY_ID_LAUNCH = 1002   # Ctrl + Alt + L
 HOTKEY_ID_LAUNCH_T = 1003 # Ctrl + Alt + T
+HOTKEY_ID_UNDO = 1004     # Ctrl + Alt + Z (Workspace Rollback)
 
 MOD_ALT = 0x0001
 MOD_CONTROL = 0x0002
@@ -38,9 +39,11 @@ class GlobalHotkeyListener:
         self,
         on_capture: Optional[Callable[[], None]] = None,
         on_launch: Optional[Callable[[], None]] = None,
+        on_undo: Optional[Callable[[], None]] = None,
     ):
         self.on_capture = on_capture
         self.on_launch = on_launch
+        self.on_undo = on_undo
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self.is_active = False
@@ -85,11 +88,13 @@ class GlobalHotkeyListener:
         res_l = user32.RegisterHotKey(None, HOTKEY_ID_LAUNCH, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x4C)
         # Ctrl + Alt + T (VK 0x54)
         res_t = user32.RegisterHotKey(None, HOTKEY_ID_LAUNCH_T, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x54)
+        # Ctrl + Alt + Z (VK 0x5A)
+        res_z = user32.RegisterHotKey(None, HOTKEY_ID_UNDO, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x5A)
 
         if not (res_c and (res_l or res_t)):
             logger.warning(
-                "[Hotkeys] Could not register all hotkeys (C=%s, L=%s, T=%s). Some may be reserved by another app.",
-                bool(res_c), bool(res_l), bool(res_t)
+                "[Hotkeys] Could not register all hotkeys (C=%s, L=%s, T=%s, Z=%s). Some may be reserved by another app.",
+                bool(res_c), bool(res_l), bool(res_t), bool(res_z)
             )
 
         msg = wintypes.MSG()
@@ -107,6 +112,10 @@ class GlobalHotkeyListener:
                             logger.info("[Hotkeys] Shortcut triggered: Ctrl+Alt+L/T (Launch / Claim Target)")
                             if self.on_launch:
                                 self.on_launch()
+                        elif hk_id == HOTKEY_ID_UNDO:
+                            logger.info("[Hotkeys] Shortcut triggered: Ctrl+Alt+Z (Undo Workspace Rollback)")
+                            if self.on_undo:
+                                self.on_undo()
 
                     user32.TranslateMessage(ctypes.byref(msg))
                     user32.DispatchMessageW(ctypes.byref(msg))
@@ -117,4 +126,5 @@ class GlobalHotkeyListener:
             user32.UnregisterHotKey(None, HOTKEY_ID_CAPTURE)
             user32.UnregisterHotKey(None, HOTKEY_ID_LAUNCH)
             user32.UnregisterHotKey(None, HOTKEY_ID_LAUNCH_T)
+            user32.UnregisterHotKey(None, HOTKEY_ID_UNDO)
             logger.debug("[Hotkeys] Unregistered Win32 hotkeys")

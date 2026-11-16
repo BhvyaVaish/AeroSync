@@ -26,6 +26,7 @@ class GestureType(str, Enum):
     FIST = GESTURE_FIST         # Short hold (<2s): Becomes Host A; transfers everything
     FIST_LONG = "fist_long"     # Long hold (>=2s): Becomes Host A; opens selective checklist
     CANCEL = GESTURE_CANCEL
+    UNDO = "undo"               # Rewind / rollback Target B workspace to pre-transfer state
 
 
 class EngineState(str, Enum):

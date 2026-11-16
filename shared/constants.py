@@ -61,6 +61,7 @@ GESTURE_RECEIVE = "receive"
 GESTURE_FIST = "fist"       # Triggers Host/A role
 GESTURE_GRAB = "grab"
 GESTURE_CANCEL = "cancel"
+GESTURE_UNDO = "undo"
 
 GESTURE_FPS = 15
 GESTURE_THROW_COOLDOWN_MS = 2000

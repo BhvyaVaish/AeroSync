@@ -102,30 +102,43 @@ async def restore_browsers(
                         create_url = f"{base_url}/json/new?{tab.url}"
                         res = await client.put(create_url)
                         res.raise_for_status()
+                        tab_data = res.json()
+                        ws_url = tab_data.get("webSocketDebuggerUrl")
+                        scroll_y = getattr(tab, "scroll_y", 0)
+                        scroll_ratio = getattr(tab, "scroll_ratio", 0.0)
+                        if ws_url and (scroll_y > 0 or scroll_ratio > 0.0):
+                            try:
+                                from services.chrome_launcher.chrome_manager import async_restore_tab_scroll
+                                await async_restore_tab_scroll(ws_url, scroll_y=scroll_y, scroll_ratio=scroll_ratio)
+                            except Exception:
+                                pass
                         successful_urls.append(tab.url)
                         all_skip.add(url_norm)
                     except Exception as e:
                         logger.warning("Failed to open %s via CDP: %s", tab.url, e)
                         failed_urls.append(tab.url)
     else:
-        # Fallback: open via normal Chrome auto-launcher
+        # Fallback: open via normal Chrome auto-launcher with scroll
         logger.info("[BrowserRestorer] CDP not running, auto-launching via ChromeManager")
-        from services.chrome_launcher.chrome_manager import launch_normal_chrome
+        from services.chrome_launcher.chrome_manager import open_tabs_with_scroll
         for browser in browsers:
-            urls_to_open = []
+            tabs_to_open = []
             for tab in browser.tabs:
                 url_norm = tab.url.rstrip("/")
                 if url_norm in all_skip:
                     reused_urls.append(tab.url)
                     continue
-                urls_to_open.append(tab.url)
-            if not urls_to_open:
+                tabs_to_open.append({
+                    "url": tab.url,
+                    "scroll_y": getattr(tab, "scroll_y", 0),
+                    "scroll_ratio": getattr(tab, "scroll_ratio", 0.0),
+                })
+            if not tabs_to_open:
                 continue
-            ok = launch_normal_chrome(urls_to_open, new_window=True)
-            if ok:
-                successful_urls.extend(urls_to_open)
-            else:
-                logger.error("[BrowserRestorer] Failed to launch Chrome with URLs: %s", urls_to_open)
-                failed_urls.extend(urls_to_open)
+            opened_urls, failed = await open_tabs_with_scroll(tabs_to_open)
+            successful_urls.extend(opened_urls)
+            failed_urls.extend(failed)
+            for u in opened_urls:
+                all_skip.add(u.rstrip("/"))
                 
     return successful_urls, failed_urls, reused_urls
