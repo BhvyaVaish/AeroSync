@@ -1,0 +1,65 @@
+# AeroSync
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment files
+.env
+*.env.local
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Testing & Linting
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Frontend & Node
+node_modules/
+apps/frontend/dist/
+apps/frontend/node_modules/
+apps/desktop/src-tauri/target/
+apps/desktop/node_modules/
+
+# Database & SQLite WAL files
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite3
+
+# Distribution
+*.tar.gz
+*.whl
+
+# Calibration data (user-specific)
+calibration.json

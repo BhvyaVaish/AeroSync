@@ -1,0 +1,43 @@
+# AeroSync - Production Dependencies
+# Core packages needed for Phases 0-5 (relay server)
+
+# Web Framework & Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+websockets>=12.0
+python-multipart>=0.0.9
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+cryptography>=42.0.0
+
+# Database (SQLite async)
+aiosqlite>=0.20.0
+
+# HTTP Client
+httpx>=0.27.0
+
+# Data Validation & Config
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+python-dotenv>=1.0.0
+
+# Utilities
+pyyaml>=6.0.0
+
+# --- Client-side packages ---
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+pywin32>=306
+pygetwindow>=0.0.9
+pyperclip>=1.8.2
+pillow>=10.0.0
+mss>=10.0.0
+pytesseract>=0.3.10
+pyautogui>=0.9.54
+google-generativeai>=0.8.0
+psutil>=5.9.0          # OS process/window enumeration for workspace logger
+pystray>=0.19.5        # Windows system tray support
+
+# pip install supabase  # When Supabase credentials are available
