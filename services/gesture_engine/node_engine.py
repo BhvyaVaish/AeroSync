@@ -171,7 +171,7 @@ class NodeBasedGestureAnalyzer:
         if hand.handedness == "Left":
             normal = normal * -1.0
 
-        is_facing_camera = normal.z < -0.35
+        is_facing_camera = normal.z < -0.15
 
         # 4. Compute finger joint flexion angles (0 to 180 degrees)
         finger_chains = {
@@ -314,38 +314,44 @@ class NodeBasedGestureAnalyzer:
         Returns:
             Tuple of (is_fist, confidence_score 0.0-1.0).
         """
-        # 1. Front-view enforcement — strict threshold
-        palm_z_threshold = -0.35
-        if self.calibration_profile and self.calibration_profile.is_calibrated:
-            palm_z_threshold = self.calibration_profile.tuned_palm_z_threshold
+        # 1. Orientation check: Relaxed for fists since knuckles or back of hand may face camera
+        # Palm normal check is bypassed for fists to enable immediate detection regardless of angle
+        core_fingers = ["index", "middle", "ring", "pinky"]
 
-        if nodes.palm_normal.z >= palm_z_threshold:
+        # 2. Check curl and extension of core 4 fingers (Thumb invariant)
+        curled_count = 0
+        extended_count = 0
+        for finger in core_fingers:
+            threshold_angle = 110.0
+            threshold_ratio = 1.25
+            if self.calibration_profile and self.calibration_profile.is_calibrated:
+                threshold_angle = self.calibration_profile.get_flexion_threshold(finger) + 15.0
+                threshold_ratio = self.calibration_profile.get_ratio_threshold(finger) + 0.15
+
+            angle = nodes.flexion_angles.get(finger, 180.0)
+            ratio = nodes.tip_extension_ratios.get(finger, 2.0)
+
+            if angle <= threshold_angle or ratio <= threshold_ratio:
+                curled_count += 1
+            if ratio > 1.35 and angle > 115.0:
+                extended_count += 1
+
+        # Must have at least 3 fingers curled and NO fingers extended
+        if curled_count < 3 or extended_count > 0:
             return False, 0.0
 
-        required_fingers = ["thumb", "index", "middle", "ring", "pinky"]
+        # 3. Thumb-invariant placement check:
+        # In a fist, thumb can be folded over fingers, on the side, tucked in, or on knuckles.
+        # It only rejects if thumb is in an explicit isolated extended thumbs-up.
+        thumb_ratio = nodes.tip_extension_ratios.get("thumb", 1.0)
+        thumb_angle = nodes.flexion_angles.get("thumb", 90.0)
+        if thumb_ratio > 1.65 and thumb_angle > 140.0:
+            return False, 0.0
 
-        # 2. All fingers must be flexed
-        for finger in required_fingers:
-            threshold = 90.0
-            if self.calibration_profile and self.calibration_profile.is_calibrated:
-                threshold = self.calibration_profile.get_flexion_threshold(finger)
-            angle = nodes.flexion_angles.get(finger, 180.0)
-            if angle > threshold:
-                return False, 0.0
-
-        # 3. All fingertips must be close to palm center (curled in)
-        for finger in required_fingers:
-            threshold_ratio = 1.0
-            if self.calibration_profile and self.calibration_profile.is_calibrated:
-                threshold_ratio = self.calibration_profile.get_ratio_threshold(finger)
-            ratio = nodes.tip_extension_ratios.get(finger, 2.0)
-            if ratio > threshold_ratio:
-                return False, 0.0
-
-        # 4. Global openness gate
-        openness_threshold = 0.20
+        # 4. Openness gate (accommodates all thumb placements)
+        openness_threshold = 0.38
         if self.calibration_profile and self.calibration_profile.is_calibrated:
-            openness_threshold = self.calibration_profile.get_openness_threshold()
+            openness_threshold = max(0.38, self.calibration_profile.get_openness_threshold() + 0.10)
         if nodes.openness_score > openness_threshold:
             return False, 0.0
 
@@ -353,19 +359,14 @@ class NodeBasedGestureAnalyzer:
         if len(self.palm_trajectory) >= 3:
             pts = list(self.palm_trajectory)[-3:]
             movement = (pts[-1] - pts[0]).magnitude
-            if movement > 0.12:
+            if movement > 0.18:
                 return False, 0.0
 
-        # Confidence scales with how closed the hand is and how well it faces camera
-        avg_flexion = sum(nodes.flexion_angles.get(f, 90.0) for f in required_fingers) / 5.0
-        avg_ratio = sum(nodes.tip_extension_ratios.get(f, 1.0) for f in required_fingers) / 5.0
-        flex_score = max(0.0, (90.0 - avg_flexion) / 90.0)
-        ratio_score = max(0.0, 1.0 - avg_ratio)
-        cam_score = max(0.0, (-nodes.palm_normal.z - 0.35) / 0.65)
-
-        confidence = round(0.4 * flex_score + 0.35 * ratio_score + 0.25 * cam_score, 2)
-        confidence = min(0.99, max(0.75, confidence + 0.65))  # floor at 0.75
-        return True, confidence
+        # Confidence calculation
+        avg_ratio = sum(nodes.tip_extension_ratios.get(f, 1.0) for f in core_fingers) / 4.0
+        ratio_score = max(0.0, 1.0 - (avg_ratio / 1.25))
+        confidence = min(0.99, max(0.80, 0.75 + ratio_score * 0.20))
+        return True, round(confidence, 2)
 
     def detect_kinematic_receive(self, nodes: KinematicHandNodes) -> Tuple[bool, float]:
         """

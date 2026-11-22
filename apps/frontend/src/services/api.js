@@ -92,6 +92,9 @@ export const api = {
     leave: (constellationId, deviceId) => fetchWithAuth(`/constellations/${constellationId}/leave`, {
       method: 'POST',
       body: JSON.stringify({ device_id: deviceId })
+    }),
+    delete: (constellationId) => fetchWithAuth(`/constellations/${constellationId}`, {
+      method: 'DELETE'
     })
   }
 };

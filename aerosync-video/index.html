@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>AeroSync — Product Launch Film</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --ground: #040608;
+        --surface: #0a0d12;
+        --border: #1a202c;
+        --ink: #f0f4f8;
+        --ink-muted: #8892b0;
+        --silver: #cbd5e1;
+        --accent-orange: #fb923c;
+        --accent-cyan: #38bdf8;
+        --accent-green: #34d399;
+        --font-mono: "JetBrains Mono", monospace;
+        --font-display: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--ground);
+        font-family: var(--font-display);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        background: radial-gradient(circle at 50% 30%, #0d131f 0%, #040608 100%);
+      }
+
+      /* Base Full-Frame Container */
+      .scene-layer {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      .inner-wrapper {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Subtle Cosmic Grid / Starfield */
+      .cosmic-grid {
+        position: absolute;
+        inset: 0;
+        background-image: 
+          radial-gradient(circle, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+          linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 60px 60px, 120px 120px, 120px 120px;
+        opacity: 0.7;
+        pointer-events: none;
+      }
+
+      .orbital-ring {
+        position: absolute;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      /* Telemetry Header HUD (Global) */
+      .hud-header {
+        position: absolute;
+        top: 36px;
+        left: 60px;
+        right: 60px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.4);
+        z-index: 50;
+      }
+
+      .hud-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .hud-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-cyan);
+        box-shadow: 0 0 8px var(--accent-cyan);
+      }
+
+      /* Act 1 Typography */
+      .hero-title-large {
+        font-size: 74px;
+        font-weight: 700;
+        line-height: 1.12;
+        text-align: center;
+        letter-spacing: -0.03em;
+        max-width: 1400px;
+        color: #ffffff;
+      }
+
+      .hero-title-accent {
+        color: var(--silver);
+        display: block;
+        margin-top: 14px;
+      }
+
+      .hero-subline {
+        margin-top: 28px;
+        font-family: var(--font-mono);
+        font-size: 18px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent-orange);
+      }
+
+      /* Floating Disconnected Windows */
+      .fragment-stage {
+        position: relative;
+        width: 1400px;
+        height: 480px;
+        margin-top: 40px;
+      }
+
+      .fragment-card {
+        position: absolute;
+        padding: 24px 32px;
+        border-radius: 16px;
+        background: rgba(15, 20, 28, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(12px);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .fragment-card-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .fragment-card-badge {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
+
+      /* UI Frame Viewports */
+      .ui-viewport {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ui-image-plate {
+        width: 1920px;
+        height: 1080px;
+        object-fit: cover;
+        box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
+      }
+
+      .ui-overlay-box {
+        position: absolute;
+        border-radius: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.15);
+        pointer-events: none;
+      }
+
+      /* Oversized Cursor */
+      .oversized-cursor {
+        position: absolute;
+        width: 84px;
+        height: 84px;
+        z-index: 1000;
+        pointer-events: none;
+        filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.8));
+      }
+
+      .cursor-click-ripple {
+        position: absolute;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      /* Captions Container */
+      .captions-bar {
+        position: absolute;
+        bottom: 72px;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 900;
+        pointer-events: none;
+      }
+
+      .caption-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 36px;
+        background: rgba(6, 9, 14, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 40px;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.7);
+        font-family: var(--font-display);
+        font-size: 26px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: #ffffff;
+      }
+
+      .caption-accent {
+        color: var(--accent-cyan);
+        font-weight: 600;
+      }
+
+      .caption-orange {
+        color: var(--accent-orange);
+        font-weight: 600;
+      }
+
+      .caption-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 0 10px #ffffff;
+      }
+
+      /* End Card */
+      .end-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .end-brand-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 0 20px #ffffff;
+      }
+
+      .end-logo-lockup {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 54px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+        margin-bottom: 12px;
+      }
+
+      .end-tagline {
+        font-size: 28px;
+        font-weight: 400;
+        color: var(--silver);
+        letter-spacing: -0.01em;
+        margin-bottom: 36px;
+      }
+
+      .end-author-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 24px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-family: var(--font-mono);
+        font-size: 15px;
+        color: #ffffff;
+        margin-bottom: 40px;
+      }
+
+      .end-cta-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        padding: 20px 48px;
+        border-radius: 40px;
+        background: #ffffff;
+        color: #040608;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        box-shadow: 0 10px 30px rgba(255, 255, 255, 0.25);
+        margin-bottom: 24px;
+      }
+
+      .end-cmd-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 28px;
+        border-radius: 12px;
+        background: rgba(10, 14, 20, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        font-family: var(--font-mono);
+        font-size: 17px;
+        color: var(--accent-cyan);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="45"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Audio Elements -->
+      <audio id="bgm" class="clip" data-start="0" data-duration="45" data-volume="0.85" src="assets/audio/soundtrack.mp3"></audio>
+      <audio id="sfx-whoosh-1" class="clip" data-start="10.6" data-duration="1.5" data-volume="0.8" src="assets/audio/sfx_whoosh.mp3"></audio>
+      <audio id="sfx-click-1" class="clip" data-start="12.8" data-duration="0.5" data-volume="0.9" src="assets/audio/sfx_click.mp3"></audio>
+      <audio id="sfx-lock-1" class="clip" data-start="13.2" data-duration="1.0" data-volume="0.9" src="assets/audio/sfx_lock.mp3"></audio>
+      <audio id="sfx-click-2" class="clip" data-start="17.8" data-duration="0.5" data-volume="0.9" src="assets/audio/sfx_click.mp3"></audio>
+      <audio id="sfx-beam-1" class="clip" data-start="21.0" data-duration="1.5" data-volume="0.9" src="assets/audio/sfx_beam.mp3"></audio>
+      <audio id="sfx-whoosh-2" class="clip" data-start="24.8" data-duration="1.5" data-volume="0.8" src="assets/audio/sfx_whoosh.mp3"></audio>
+      <audio id="sfx-lock-2" class="clip" data-start="29.0" data-duration="1.0" data-volume="0.85" src="assets/audio/sfx_lock.mp3"></audio>
+      <audio id="sfx-click-3" class="clip" data-start="42.0" data-duration="0.5" data-volume="0.9" src="assets/audio/sfx_click.mp3"></audio>
+
+      <!-- Background Cosmic Elements -->
+      <div class="cosmic-grid"></div>
+      <div class="orbital-ring" style="width: 1400px; height: 1400px; top: -160px; left: 260px;"></div>
+      <div class="orbital-ring" style="width: 2200px; height: 2200px; top: -560px; left: -140px;"></div>
+
+      <!-- Persistent Telemetry HUD Header -->
+      <div class="hud-header">
+        <div class="hud-badge">
+          <span class="hud-dot"></span>
+          <span>AEROSYNC // KINEMATIC DISPATCH SYSTEM</span>
+        </div>
+        <div class="hud-badge">
+          <span>LATENCY: 0.18MS • LAN GIGABIT MESH</span>
+        </div>
+      </div>
+
+      <!-- ================= ACT 1: THE FRAGMENTATION PROBLEM (0s - 11s) ================= -->
+      <div id="scene-act1" class="clip scene-layer" data-start="0" data-duration="11" data-track-index="1">
+        <div class="inner-wrapper" id="act1-wrapper">
+          <h1 id="act1-title" class="hero-title-large">
+            Work happens across multiple devices.
+            <span class="hero-title-accent">Yet your workflow stays fragmented and trapped.</span>
+          </h1>
+          <div id="act1-subline" class="hero-subline">Manual Copy • Lost Tabs • Disconnected Sessions</div>
+
+          <!-- Fragmented Floating Windows -->
+          <div class="fragment-stage" id="act1-stage">
+            <div class="fragment-card" id="frag-1" style="left: 60px; top: 40px; width: 380px;">
+              <div class="fragment-card-title">
+                <span>Visual Studio Code</span>
+                <span class="fragment-card-badge">UNSYNCED</span>
+              </div>
+              <div style="font-family: var(--font-mono); font-size: 13px; color: #94a3b8;">
+                main.py • 4 unsaved buffers<br>
+                Local port: 8000
+              </div>
+            </div>
+
+            <div class="fragment-card" id="frag-2" style="left: 480px; top: 120px; width: 440px;">
+              <div class="fragment-card-title">
+                <span>Google Chrome (8 Tabs)</span>
+                <span class="fragment-card-badge">SESSION LOST</span>
+              </div>
+              <div style="font-family: var(--font-mono); font-size: 13px; color: #94a3b8;">
+                GitHub PR #42 • Jira • Staging API<br>
+                Credentials expired on Target B
+              </div>
+            </div>
+
+            <div class="fragment-card" id="frag-3" style="left: 960px; top: 50px; width: 380px;">
+              <div class="fragment-card-title">
+                <span>OS Clipboard & Shell</span>
+                <span class="fragment-card-badge">DISCONNECTED</span>
+              </div>
+              <div style="font-family: var(--font-mono); font-size: 13px; color: #94a3b8;">
+                Token buffer: 2.4 KB plain text<br>
+                Terminal processes: 2 background jobs
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= ACT 2A: LIVE COCKPIT & FIST GESTURE (11s - 17s) ================= -->
+      <div id="scene-act2a" class="clip scene-layer" data-start="11" data-duration="6" data-track-index="1">
+        <div class="ui-viewport" id="act2a-viewport">
+          <img class="ui-image-plate" id="act2a-img" src="assets/ui/01_dashboard.png" alt="AeroSync Live Dashboard" />
+          <!-- Animated Highlight over Gesture Card -->
+          <div class="ui-overlay-box" id="act2a-highlight" style="top: 200px; left: 360px; width: 1200px; height: 130px; opacity: 0;"></div>
+        </div>
+      </div>
+
+      <!-- ================= ACT 2B: SELECTIVE BEAM MODAL (17s - 23.5s) ================= -->
+      <div id="scene-act2b" class="clip scene-layer" data-start="17" data-duration="6.5" data-track-index="1">
+        <div class="ui-viewport" id="act2b-viewport">
+          <img class="ui-image-plate" id="act2b-img" src="assets/ui/02_selective_beam_modal.png" alt="Selective Beam Modal" />
+          <!-- Highlight over [ Beam Selected ] Button -->
+          <div class="ui-overlay-box" id="act2b-btn-highlight" style="top: 765px; left: 1055px; width: 165px; height: 42px; border-color: var(--accent-cyan); opacity: 0;"></div>
+        </div>
+      </div>
+
+      <!-- ================= ACT 2C: MEMORY DEQUE & THROW DISPATCH (23.5s - 29s) ================= -->
+      <div id="scene-act2c" class="clip scene-layer" data-start="23.5" data-duration="5.5" data-track-index="1">
+        <div class="ui-viewport" id="act2c-viewport">
+          <!-- Zoomed Focus on Active Workspace & Gesture Card -->
+          <div id="act2c-cards-wrapper" class="inner-wrapper" style="position: relative; width: 1500px; gap: 24px;">
+            <img style="width: 1360px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 50px rgba(0,0,0,0.8);" src="assets/ui/08_deque_card.png" alt="Active Workspace Deque" />
+            <img style="width: 1360px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 50px rgba(0,0,0,0.8);" src="assets/ui/09_gesture_status_card.png" alt="Gesture Status Locked" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= ACT 2D: ROLLBACK & CONSTELLATIONS (29s - 34s) ================= -->
+      <div id="scene-act2d" class="clip scene-layer" data-start="29" data-duration="5" data-track-index="1">
+        <div class="ui-viewport" id="act2d-viewport">
+          <img class="ui-image-plate" id="act2d-img" src="assets/ui/03_walkthrough_modal.png" alt="Walkthrough and Constellations" />
+        </div>
+      </div>
+
+      <!-- ================= ACT 3A: HERO PAYOFF (34s - 39.5s) ================= -->
+      <div id="scene-act3a" class="clip scene-layer" data-start="34" data-duration="5.5" data-track-index="1">
+        <div class="ui-viewport" id="act3a-viewport">
+          <img class="ui-image-plate" id="act3a-img" src="assets/ui/07_armed_state.png" alt="Full Synchronized Workspace State" />
+        </div>
+      </div>
+
+      <!-- ================= ACT 3B: TITANIUM END CARD & CTA (39.5s - 45s) ================= -->
+      <div id="scene-act3b" class="clip scene-layer" data-start="39.5" data-duration="5.5" data-track-index="1">
+        <div class="inner-wrapper" id="act3b-wrapper">
+          <div class="end-card">
+            <div class="end-logo-lockup">
+              <span class="end-brand-dot"></span>
+              <span>AeroSync</span>
+            </div>
+            <div class="end-tagline">Next-Generation Touchless Workspace Synchronization</div>
+            
+            <div class="end-author-badge">
+              <span>Engineered by Bhvya Vaish</span>
+              <span style="opacity: 0.4;">•</span>
+              <span style="color: var(--accent-cyan);">linkedin.com/in/bhvya-vaish</span>
+            </div>
+
+            <div class="end-cta-btn" id="cta-button">
+              <span>Download AeroSync CLI & Desktop App</span>
+              <span style="font-size: 24px;">→</span>
+            </div>
+
+            <div class="end-cmd-pill">
+              <span style="color: #64748b;">$</span>
+              <span>git clone https://github.com/aerosync/core</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= OVERSIZED MACOS CURSOR LAYER ================= -->
+      <div id="cursor-layer" class="clip" data-start="11" data-duration="34" data-track-index="2" style="position: absolute; inset: 0; pointer-events: none; z-index: 950;">
+        <img id="virtual-cursor" class="oversized-cursor" src="assets/cursor.svg" alt="Pointer" style="opacity: 0;" />
+        <div id="cursor-ripple" class="cursor-click-ripple"></div>
+      </div>
+
+      <!-- ================= SYNCHRONIZED CAPTIONS TRACK ================= -->
+      <div id="captions-track" class="captions-bar clip" data-start="0" data-duration="45" data-track-kind="captions" data-track-index="3">
+        <!-- Caption 1: 0.5s - 5.0s -->
+        <div id="cap-1" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot"></span>
+          <span>Work happens across multiple devices. <span class="caption-accent">Yet your workflow stays trapped.</span></span>
+        </div>
+
+        <!-- Caption 2: 5.5s - 10.5s -->
+        <div id="cap-2" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot" style="background: var(--accent-orange); box-shadow: 0 0 10px var(--accent-orange);"></span>
+          <span>What if your entire workspace moved <span class="caption-orange">with a flick of your hand?</span></span>
+        </div>
+
+        <!-- Caption 3: 11.2s - 16.5s -->
+        <div id="cap-3" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot"></span>
+          <span>Form a Fist. <span class="caption-accent">Host A locks your entire state in 350ms.</span></span>
+        </div>
+
+        <!-- Caption 4: 17.2s - 23.0s -->
+        <div id="cap-4" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot"></span>
+          <span>Selective Beam. <span class="caption-accent">Choose precisely what moves—down to the browser tab.</span></span>
+        </div>
+
+        <!-- Caption 5: 23.8s - 28.5s -->
+        <div id="cap-5" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot" style="background: var(--accent-orange); box-shadow: 0 0 10px var(--accent-orange);"></span>
+          <span>Throw to Target B. <span class="caption-orange">Instant peer-to-peer Gigabit LAN transfer.</span></span>
+        </div>
+
+        <!-- Caption 6: 29.2s - 33.8s -->
+        <div id="cap-6" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot"></span>
+          <span>Peace Sign Undo. <span class="caption-accent">Instant rollback. Zero cloud. 100% private.</span></span>
+        </div>
+
+        <!-- Caption 7: 34.5s - 39.0s -->
+        <div id="cap-7" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot"></span>
+          <span>Your entire workflow. <span class="caption-accent">Everywhere you go. Touchless.</span></span>
+        </div>
+
+        <!-- Caption 8: 39.8s - 44.5s -->
+        <div id="cap-8" class="caption-pill" style="opacity: 0; display: none;">
+          <span class="caption-dot"></span>
+          <span>AeroSync. <span class="caption-accent">Take command of your workspace.</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GSAP Animation Master Timeline -->
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      // Helper to show/hide captions cleanly
+      function setupCaption(id, start, end) {
+        const el = document.querySelector(id);
+        if (!el) return;
+        tl.set(el, { display: "inline-flex", opacity: 0, y: 15 }, start);
+        tl.to(el, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, start + 0.05);
+        tl.to(el, { opacity: 0, y: -10, duration: 0.25, ease: "power2.in" }, end - 0.3);
+        tl.set(el, { display: "none" }, end);
+      }
+
+      // -------------------------------------------------------------
+      // 1. CAPTIONS SCHEDULING (0s - 45s)
+      // -------------------------------------------------------------
+      setupCaption("#cap-1", 0.5, 5.0);
+      setupCaption("#cap-2", 5.5, 10.5);
+      setupCaption("#cap-3", 11.2, 16.5);
+      setupCaption("#cap-4", 17.2, 23.0);
+      setupCaption("#cap-5", 23.8, 28.5);
+      setupCaption("#cap-6", 29.2, 33.8);
+      setupCaption("#cap-7", 34.5, 39.0);
+      setupCaption("#cap-8", 39.8, 44.5);
+
+      // -------------------------------------------------------------
+      // 2. ACT 1: HOOK & THE PROBLEM (0.0s - 11.0s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act1-title", 
+        { opacity: 0, filter: "blur(12px)", y: 30 },
+        { opacity: 1, filter: "blur(0px)", y: 0, duration: 0.8, ease: "power4.out" }, 
+        0.4
+      );
+
+      tl.fromTo("#act1-subline",
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" },
+        1.0
+      );
+
+      // Floating Fragment Cards Entrance
+      tl.fromTo("#frag-1",
+        { opacity: 0, x: -60, y: 40, rotation: -4 },
+        { opacity: 1, x: 0, y: 0, rotation: -2, duration: 0.8, ease: "power3.out" },
+        1.4
+      );
+      tl.fromTo("#frag-2",
+        { opacity: 0, y: 70, rotation: 3 },
+        { opacity: 1, y: 0, rotation: 1, duration: 0.8, ease: "power3.out" },
+        1.7
+      );
+      tl.fromTo("#frag-3",
+        { opacity: 0, x: 60, y: 40, rotation: 5 },
+        { opacity: 1, x: 0, y: 0, rotation: 3, duration: 0.8, ease: "power3.out" },
+        2.0
+      );
+
+      // Cards Drifting Apart (Tension build) - start strictly after entrances
+      tl.to("#frag-1", { x: -40, y: -20, rotation: -5, duration: 4.5, ease: "none" }, 2.3);
+      tl.to("#frag-2", { y: 30, rotation: 2, duration: 4.5, ease: "none" }, 2.6);
+      tl.to("#frag-3", { x: 40, y: -25, rotation: 6, duration: 4.5, ease: "none" }, 2.9);
+
+      // Act 1 Question Beat (7.2s - 10.3s)
+      tl.to("#act1-title", { opacity: 0.15, filter: "blur(4px)", duration: 0.6, ease: "power2.inOut" }, 7.2);
+      tl.to("#act1-stage", { opacity: 0.25, filter: "blur(6px)", scale: 0.95, duration: 0.8, ease: "power2.inOut" }, 7.2);
+
+      // Cut-The-Curve Accelerating Exit into Cockpit
+      tl.to("#act1-wrapper", {
+        scale: 1.45,
+        opacity: 0,
+        filter: "blur(18px)",
+        duration: 0.65,
+        ease: "power3.in"
+      }, 10.35);
+
+      // -------------------------------------------------------------
+      // 3. ACT 2A: LIVE COCKPIT & FIST GESTURE (11.0s - 17.0s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act2a-viewport",
+        { scale: 1.15, opacity: 0, filter: "blur(14px)" },
+        { scale: 1.00, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power4.out" },
+        11.0
+      );
+
+      // Continuous Slow Camera Push (11.6s to 16.5s)
+      tl.to("#act2a-img", { scale: 1.05, duration: 4.9, ease: "none" }, 11.6);
+
+      // Oversized Cursor sweeps in to Camera Sensor button (bottom-right: 1810px, 960px)
+      tl.fromTo("#virtual-cursor",
+        { opacity: 0, x: 1940, y: 1100 },
+        { opacity: 1, x: 1780, y: 940, duration: 0.8, ease: "power3.out" },
+        12.0
+      );
+
+      // Cursor Click at 12.8s
+      tl.to("#virtual-cursor", { scale: 0.85, duration: 0.08, ease: "power2.in" }, 12.8);
+      tl.fromTo("#cursor-ripple",
+        { x: 1810, y: 970, scale: 0.1, opacity: 0.9 },
+        { scale: 1.0, opacity: 0, duration: 0.45, ease: "power2.out" },
+        12.8
+      );
+      tl.to("#virtual-cursor", { scale: 1.0, duration: 0.12, ease: "back.out(1.5)" }, 12.88);
+
+      // Sensor Status Highlight Pulse
+      tl.to("#act2a-highlight", { opacity: 1, duration: 0.3, ease: "power3.out" }, 13.2);
+      tl.to("#act2a-highlight", { opacity: 0.4, duration: 0.6, repeat: 1, yoyo: true }, 13.5);
+
+      // Move Cursor towards Selective Beam button for Scene 2B
+      tl.to("#virtual-cursor", { x: 1180, y: 145, duration: 1.0, ease: "power3.inOut" }, 15.5);
+
+      // Transition to Act 2B
+      tl.to("#act2a-viewport", { scale: 1.3, opacity: 0, filter: "blur(10px)", duration: 0.5, ease: "power3.in" }, 16.5);
+
+      // -------------------------------------------------------------
+      // 4. ACT 2B: SELECTIVE BEAM MODAL (17.0s - 23.5s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act2b-viewport",
+        { scale: 1.12, opacity: 0, filter: "blur(12px)" },
+        { scale: 1.00, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power4.out" },
+        17.0
+      );
+
+      // Cursor lands on [ Beam Selected ] button (around x: 1140, y: 785)
+      tl.to("#virtual-cursor", { x: 1140, y: 785, duration: 0.6, ease: "power3.out" }, 17.2);
+
+      // Beam Selected Button Highlight
+      tl.to("#act2b-btn-highlight", { opacity: 1, duration: 0.3 }, 19.5);
+
+      // Click at 21.0s
+      tl.to("#virtual-cursor", { scale: 0.85, duration: 0.08, ease: "power2.in" }, 21.0);
+      tl.fromTo("#cursor-ripple",
+        { x: 1140, y: 785, scale: 0.1, opacity: 0.9, immediateRender: false },
+        { scale: 1.1, opacity: 0, duration: 0.5, ease: "power2.out" },
+        21.0
+      );
+      tl.to("#virtual-cursor", { scale: 1.0, duration: 0.12, ease: "back.out(1.5)" }, 21.08);
+
+      // Modal Zoom-Out Transition
+      tl.to("#act2b-viewport", { scale: 0.88, opacity: 0, filter: "blur(14px)", duration: 0.5, ease: "power3.in" }, 23.0);
+
+      // -------------------------------------------------------------
+      // 5. ACT 2C: MEMORY DEQUE & THROW DISPATCH (23.5s - 29.0s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act2c-viewport",
+        { scale: 0.9, opacity: 0, filter: "blur(10px)" },
+        { scale: 1.0, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "power4.out" },
+        23.5
+      );
+
+      // Continuous subtle push on inner cards
+      tl.to("#act2c-cards-wrapper", { scale: 1.03, duration: 4.5, ease: "none" }, 24.0);
+
+      // Cursor sweeps off-screen right
+      tl.to("#virtual-cursor", { x: 1950, y: 400, duration: 0.8, ease: "power2.in" }, 24.0);
+
+      // Transition out
+      tl.to("#act2c-viewport", { scale: 1.15, opacity: 0, filter: "blur(12px)", duration: 0.45, ease: "power3.in" }, 28.55);
+
+      // -------------------------------------------------------------
+      // 6. ACT 2D: ROLLBACK & CONSTELLATIONS (29.0s - 34.0s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act2d-viewport",
+        { scale: 1.1, opacity: 0, filter: "blur(10px)" },
+        { scale: 1.0, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "power4.out" },
+        29.0
+      );
+
+      tl.to("#act2d-img", { scale: 1.03, duration: 4.0, ease: "none" }, 29.5);
+
+      tl.to("#act2d-viewport", { scale: 1.2, opacity: 0, filter: "blur(14px)", duration: 0.45, ease: "power3.in" }, 33.55);
+
+      // -------------------------------------------------------------
+      // 7. ACT 3A: PAYOFF (34.0s - 39.5s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act3a-viewport",
+        { scale: 1.08, opacity: 0, filter: "blur(8px)" },
+        { scale: 1.0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power4.out" },
+        34.0
+      );
+
+      tl.to("#act3a-img", { scale: 1.04, duration: 4.8, ease: "none" }, 34.6);
+
+      tl.to("#act3a-viewport", { opacity: 0, scale: 0.94, filter: "blur(16px)", duration: 0.6, ease: "power3.in" }, 38.9);
+
+      // -------------------------------------------------------------
+      // 8. ACT 3B: TITANIUM END CARD & CTA (39.5s - 45.0s)
+      // -------------------------------------------------------------
+      tl.fromTo("#act3b-wrapper",
+        { opacity: 0, scale: 0.92, filter: "blur(14px)" },
+        { opacity: 1, scale: 1.0, filter: "blur(0px)", duration: 0.8, ease: "power4.out" },
+        39.5
+      );
+
+      // Cursor sweeps in to click CTA button (center: x: 960, y: 640)
+      tl.to("#virtual-cursor", { opacity: 1, x: 960, y: 640, duration: 0.8, ease: "power3.out" }, 41.2);
+
+      // Click on CTA button at 42.0s
+      tl.to("#virtual-cursor", { scale: 0.85, duration: 0.08, ease: "power2.in" }, 42.0);
+      tl.fromTo("#cursor-ripple",
+        { x: 960, y: 640, scale: 0.1, opacity: 0.9, immediateRender: false },
+        { scale: 1.2, opacity: 0, duration: 0.5, ease: "power2.out" },
+        42.0
+      );
+      tl.to("#virtual-cursor", { scale: 1.0, duration: 0.12, ease: "back.out(1.5)" }, 42.08);
+
+      // CTA button pulse reaction
+      tl.to("#cta-button", { scale: 0.97, duration: 0.08, ease: "power2.in" }, 42.0);
+      tl.to("#cta-button", { scale: 1.04, duration: 0.25, ease: "back.out(2)" }, 42.08);
+
+      // Hold end state dead-still through 45.0s (HyperFrames Contract)
+
+      // Register the master timeline
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

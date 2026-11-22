@@ -55,7 +55,8 @@ export const SelectiveTransferModal = ({ isOpen, onClose, onConfirmTransfer, ini
         <div className="checklist-header">
           <div className="checklist-title-area">
             <h2>
-              <span>✊</span> Selective Workspace Beam (Host A)
+              <Layers size={20} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8, color: '#38BDF8' }} />
+              Selective Workspace Beam (Host A)
             </h2>
             <p className="checklist-subtitle">
               Long Fist Detected (≥2.0s). Choose exactly which elements to beam to your Constellation:
@@ -72,7 +73,7 @@ export const SelectiveTransferModal = ({ isOpen, onClose, onConfirmTransfer, ini
           <div className="checklist-section">
             <div className="checklist-section-header">
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AppWindow size={16} color="#38bdf8" /> Open Application Windows
+                <AppWindow size={16} /> Open Application Windows
               </span>
             </div>
             <div className="checklist-items-list">
@@ -115,7 +116,7 @@ export const SelectiveTransferModal = ({ isOpen, onClose, onConfirmTransfer, ini
           <div className="checklist-section">
             <div className="checklist-section-header">
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Globe size={16} color="#00f5d4" /> Browser Tabs (Chrome Auto-Launch)
+                <Globe size={16} /> Browser Tabs (Chrome Auto-Launch)
               </span>
             </div>
             <div className="checklist-items-list">
@@ -186,7 +187,6 @@ export const SelectiveTransferModal = ({ isOpen, onClose, onConfirmTransfer, ini
               size="md"
               icon={<Rocket size={16} />}
               onClick={handleBeamSelected}
-              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', borderColor: '#fb923c' }}
             >
               Beam Selected
             </Button>

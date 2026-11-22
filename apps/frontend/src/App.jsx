@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
@@ -8,7 +8,9 @@ import { Devices } from './pages/Devices';
 import { Sessions } from './pages/Sessions';
 import { Constellations } from './pages/Constellations';
 import { Navbar } from './components/Navbar';
+import { Footer } from './components/Footer';
 import { CameraWidget } from './components/CameraWidget';
+import { SpaceBackground } from './components/SpaceBackground';
 import { WebSocketProvider } from './services/websocket';
 import { auth } from './services/auth';
 import { api } from './services/api';
@@ -37,20 +39,42 @@ function App() {
   }, []);
 
   if (loading) {
-    return <div className="app-loading">Loading AeroSync...</div>;
+    return (
+      <>
+        <SpaceBackground />
+        <div className="app-loading">Initialising AeroSync</div>
+      </>
+    );
   }
 
   return (
     <WebSocketProvider>
       <BrowserRouter>
+        {/* Deep space animated canvas behind everything */}
+        <SpaceBackground />
+
         <div className="app-container">
-          <Toaster position="top-right" toastOptions={{
-            style: {
-              background: 'var(--bg-surface)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-light)',
-            }
-          }} />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: 'rgba(6, 10, 18, 0.95)',
+                color: '#F0F4F8',
+                border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: '10px',
+                backdropFilter: 'blur(16px)',
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: '0.875rem',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              },
+              success: {
+                iconTheme: { primary: '#FFFFFF', secondary: '#000000' },
+              },
+              error: {
+                iconTheme: { primary: '#ff4757', secondary: '#000' },
+              },
+            }}
+          />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={
@@ -95,6 +119,7 @@ function App() {
             } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <Footer />
           {user && <CameraWidget />}
         </div>
       </BrowserRouter>

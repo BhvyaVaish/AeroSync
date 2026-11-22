@@ -1,7 +1,9 @@
 {
-  "name": "frontend",
+  "name": "aerosync-frontend",
+  "version": "1.0.0",
+  "description": "Frontend web cockpit for AeroSync: Touchless vision-based workspace synchronization across devices",
+  "author": "Bhvya Vaish (https://www.linkedin.com/in/bhvya-vaish)",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/hands": "^0.4.1675469240",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

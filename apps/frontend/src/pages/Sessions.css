@@ -1,10 +1,29 @@
+/* ══════════════════════════════════════════════════════════
+   Sessions Page — Frosted Glassmorphism & Matte Statuses
+══════════════════════════════════════════════════════════ */
 .sessions-container {
+  position: relative;
+  z-index: 1;
   max-width: 1200px;
   margin: 0 auto;
+  padding: 24px 32px;
+}
+
+.sessions-container .page-header h1 {
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(180deg, #FFFFFF 15%, #CBD5E1 65%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
 }
 
 .sessions-card {
-  padding: 1.5rem;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
 }
 
 .table-responsive {
@@ -19,71 +38,94 @@
 
 .sessions-table th,
 .sessions-table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-light);
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .sessions-table th {
-  color: var(--text-muted);
-  font-weight: 500;
+  color: var(--silver-400);
+  font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  background: rgba(0, 0, 0, 0.25);
+  font-family: var(--font-mono);
+}
+
+.sessions-table tbody tr {
+  transition: background var(--transition-fast);
 }
 
 .sessions-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
 }
 
+.sessions-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Status Badge (Aesthetic Matte) ─────────────────────── */
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
   font-weight: 600;
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
 }
 
-.status-badge.completed {
-  background: rgba(46, 213, 115, 0.1);
-  color: #2ed573;
-  border: 1px solid rgba(46, 213, 115, 0.2);
+.status-badge.completed,
+.status-badge.complete {
+  background: var(--status-complete-bg);
+  color: var(--status-complete);
+  border: 1px solid var(--status-complete-bd);
 }
 
 .status-badge.failed {
-  background: rgba(255, 71, 87, 0.1);
-  color: #ff4757;
-  border: 1px solid rgba(255, 71, 87, 0.2);
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
+  border: 1px solid var(--status-failed-bd);
 }
 
 .status-badge.pending {
-  background: rgba(255, 165, 2, 0.1);
-  color: #ffa502;
-  border: 1px solid rgba(255, 165, 2, 0.2);
+  background: var(--status-pending-bg);
+  color: var(--status-pending);
+  border: 1px solid var(--status-pending-bd);
 }
 
-.font-mono {
-  font-family: monospace;
+/* ── Utilities ──────────────────────────────────────────── */
+.font-mono { font-family: var(--font-mono); }
+.text-sm   { font-size: 0.82rem; }
+
+.text-red { color: var(--status-failed); }
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--silver-400);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-fast);
 }
 
-.text-sm {
-  font-size: 0.875rem;
-}
-
-.text-red {
-  color: #ff4757;
-}
-
-.text-red:hover {
-  color: #ff4757;
-  background: rgba(255, 71, 87, 0.1);
+.icon-btn:hover {
+  border-color: var(--status-failed-bd);
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
 }
 
 .loading-state,
 .empty-state {
   text-align: center;
-  padding: 4rem;
-  color: var(--text-muted);
+  padding: 4rem 2rem;
+  color: var(--silver-400);
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
 }

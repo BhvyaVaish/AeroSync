@@ -375,6 +375,31 @@ async def leave_constellation(
     return True, None
 
 
+async def delete_constellation(
+    user_id: str,
+    constellation_id: str,
+) -> Tuple[bool, Optional[str]]:
+    """
+    Delete a constellation owned by the user, removing all member associations.
+    """
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT id, creator_user_id FROM constellations WHERE id = ?",
+        (constellation_id,)
+    )
+    constellation = await cursor.fetchone()
+    if not constellation:
+        return False, "Constellation not found."
+    if constellation["creator_user_id"] != user_id:
+        return False, "Only the creator can delete this constellation."
+
+    await db.execute("DELETE FROM constellation_members WHERE constellation_id = ?", (constellation_id,))
+    await db.execute("DELETE FROM constellations WHERE id = ?", (constellation_id,))
+    await db.commit()
+    logger.info(f"Constellation {constellation_id} deleted by creator user {user_id}")
+    return True, None
+
+
 async def get_constellation_transfer_targets(device_id: str) -> List[Dict[str, Any]]:
     """
     Find all peer computers that share an isolated constellation room with device_id.

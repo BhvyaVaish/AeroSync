@@ -16,6 +16,7 @@ from apps.relay_server.services.constellation_service import (
     list_user_constellations,
     get_constellation,
     leave_constellation,
+    delete_constellation,
     get_constellation_transfer_targets,
 )
 from shared.constants import MAX_CONSTELLATION_DEVICES
@@ -161,6 +162,21 @@ async def leave_room(
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
     return {"success": True, "message": "Left constellation successfully"}
+
+
+@router.delete(
+    "/{constellation_id}",
+    summary="Delete a constellation",
+)
+async def remove_constellation(
+    constellation_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Delete a constellation room (creator only)."""
+    ok, error = await delete_constellation(user_id, constellation_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+    return {"success": True, "message": "Constellation deleted successfully"}
 
 
 @router.get(

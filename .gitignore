@@ -61,5 +61,9 @@ apps/desktop/node_modules/
 *.tar.gz
 *.whl
 
+# HyperFrames cache
+.hyperframes/
+*/.hyperframes/
+
 # Calibration data (user-specific)
 calibration.json

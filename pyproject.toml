@@ -1,3 +1,15 @@
+[project]
+name = "aerosync"
+version = "1.0.0"
+description = "Touchless, vision-driven workspace synchronization across multiple computers triggered by webcam hand gestures."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Bhvya Vaish" }
+]
+license = { text = "MIT" }
+keywords = ["workspace-sync", "mediapipe", "computer-vision", "fastapi", "react", "gestures", "productivity"]
+
 [tool.pytest.ini_options]
 testpaths = ["apps/relay_server/tests", "services", "tests"]
 asyncio_mode = "auto"

@@ -109,14 +109,17 @@ export const Devices = () => {
           return (
             <GlassCard key={device.device_id} className="device-card">
               <div className="device-card-header">
-                <div className="device-icon-wrapper">
-                  {device.platform === 'windows' ? <Monitor size={24} /> :
-                   device.platform === 'mac' ? <Laptop size={24} /> :
-                   <Smartphone size={24} />}
+                <div className={`device-icon-wrapper platform-${device.platform}`}>
+                  {device.platform === 'windows' ? <Monitor size={22} /> :
+                   device.platform === 'mac' ? <Laptop size={22} /> :
+                   <Smartphone size={22} />}
                 </div>
                 <div className="device-actions">
-                  <button className="icon-btn delete-btn" onClick={() => handleDelete(device.device_id)}>
-                    <Trash2 size={18} />
+                  <span className={`platform-tag platform-${device.platform}`}>
+                    {device.platform || 'node'}
+                  </span>
+                  <button className="icon-btn delete-btn" onClick={() => handleDelete(device.device_id)} title="Remove device">
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -132,7 +135,7 @@ export const Devices = () => {
 
               <div className="device-footer">
                 <Button 
-                  variant="secondary" 
+                  variant="primary" 
                   className="full-width"
                   onClick={() => handleInitiatePairing(device.device_id)}
                 >

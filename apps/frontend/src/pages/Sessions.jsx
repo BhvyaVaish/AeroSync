@@ -53,7 +53,7 @@ export const Sessions = () => {
           <p className="subtitle">View all your workspace transfers across devices</p>
         </div>
         <Button 
-          variant="secondary" 
+          variant="primary" 
           icon={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
           onClick={fetchSessions}
         >

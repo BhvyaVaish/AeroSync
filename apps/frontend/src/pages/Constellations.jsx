@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Sparkles, Plus, Key, Copy, Check, Monitor, Trash2, Users, Shield, LogOut } from 'lucide-react';
+import { Sparkles, Plus, Key, Copy, Check, Monitor, Trash2, Users, Shield, LogOut, X } from 'lucide-react';
 import { GlassCard } from '../components/GlassCard';
 import { Button } from '../components/Button';
 import { api } from '../services/api';
@@ -103,6 +103,19 @@ export const Constellations = () => {
     }
   };
 
+  const handleDeleteConstellation = async (constellationId, constellationName) => {
+    if (!window.confirm(`Are you sure you want to delete constellation "${constellationName}"? This will unlink all computers.`)) {
+      return;
+    }
+    try {
+      await api.constellations.delete(constellationId);
+      toast.success(`Constellation "${constellationName}" deleted`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete constellation');
+    }
+  };
+
   if (loading) return <div className="loading">Loading Constellations...</div>;
 
   return (
@@ -120,7 +133,7 @@ export const Constellations = () => {
         </div>
         <div className="header-actions">
           <Button 
-            variant="secondary" 
+            variant="primary" 
             icon={<Key size={18} />}
             onClick={() => setShowJoinModal(true)}
           >
@@ -176,9 +189,18 @@ export const Constellations = () => {
                       </span>
                     </div>
                   </div>
-                  <span className={`c-capacity-badge ${isFull ? 'full' : 'available'}`}>
-                    {isFull ? 'Full (5/5)' : `${c.device_count} / ${c.max_devices} Computers`}
-                  </span>
+                  <div className="c-header-right">
+                    <span className={`c-capacity-badge ${isFull ? 'full' : 'available'}`}>
+                      {isFull ? 'Full (5/5)' : `${c.device_count} / ${c.max_devices} Computers`}
+                    </span>
+                    <button
+                      className="icon-btn delete-btn"
+                      onClick={() => handleDeleteConstellation(c.id, c.name)}
+                      title="Delete Constellation"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Join Code Box */}
@@ -253,7 +275,9 @@ export const Constellations = () => {
           <GlassCard className="modal-content">
             <div className="modal-header">
               <h2>Create New Constellation</h2>
-              <button className="close-btn" onClick={() => setShowCreateModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowCreateModal(false)}>
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={handleCreate} className="modal-body">
               <p className="modal-desc">
@@ -301,7 +325,9 @@ export const Constellations = () => {
           <GlassCard className="modal-content">
             <div className="modal-header">
               <h2>Join Constellation Room</h2>
-              <button className="close-btn" onClick={() => setShowJoinModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => setShowJoinModal(false)}>
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={handleJoin} className="modal-body">
               <p className="modal-desc">
